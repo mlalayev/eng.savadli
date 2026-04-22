@@ -1,0 +1,52 @@
+/**
+ * Site-wide color tokens — change values here to retone the whole app.
+ * Imported from globals.css after Tailwind.
+ */
+:root {
+  --background: #f7f6f3;
+  --surface: #ffffff;
+  --text: #1c1917;
+  --muted: #57534e;
+  --faint: #a8a29e;
+  --border: #e7e5e4;
+
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-soft: #f0fdfa;
+  --ring: #0f766e;
+  --on-accent: #ffffff;
+
+  --header-bg: rgb(255 255 255 / 0.85);
+
+  --hover: #fafaf9;
+  --hover-strong: #f5f5f4;
+  --blob-soft: #f5f5f4;
+
+  --error-border: #fecaca;
+  --error-border-soft: #fee2e2;
+  --error-surface: #fef2f2;
+  --error-text: #991b1b;
+
+  --danger-text: #b91c1c;
+  --danger-hover: #fef2f2;
+
+  --success-badge-bg: #d1fae5;
+  --success-badge-text: #047857;
+
+  --warning-badge-bg: #fef3c7;
+  --warning-badge-text: #92400e;
+
+  --inactive-text: #78716c;
+
+  --program-ielts: #0284c7;
+  --program-general: #78716c;
+  --program-muted: #a8a29e;
+
+  --skeleton: #e7e5e4;
+  --skeleton-muted: #f5f5f4;
+
+  --overlay-scrim: rgb(28 25 23 / 0.45);
+  --shadow-ring: rgb(0 0 0 / 0.05);
+
+  --accent-gradient-mid: color-mix(in srgb, var(--accent) 65%, white);
+}
