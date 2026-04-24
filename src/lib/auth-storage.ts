@@ -1,6 +1,6 @@
 import type { SessionUser } from "./mock-accounts";
 
-const STORAGE_KEY = "dsatielts_session_v1";
+const STORAGE_KEY = "savadli_session_v1";
 
 export function loadSession(): SessionUser | null {
   if (typeof window === "undefined") return null;

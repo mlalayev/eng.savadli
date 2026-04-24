@@ -1,8 +1,8 @@
 export const siteConfig = {
-  name: "English Studio",
-  shortName: "ES",
+  name: "savadli.com",
+  shortName: "S",
   description:
     "Private instruction for General English, IELTS, and Digital SAT — clear goals, structured practice, and feedback that sticks.",
   /** Replace with your real address */
-  contactEmail: "hello@example.com",
+  contactEmail: "hello@savadli.com",
 } as const;

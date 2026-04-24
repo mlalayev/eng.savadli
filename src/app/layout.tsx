@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteConfig.name} · IELTS, DSAT & General English`,
+    default: `${siteConfig.name} · IELTS, Digital SAT & General English`,
     template: `%s · ${siteConfig.name}`,
   },
   description: siteConfig.description,
