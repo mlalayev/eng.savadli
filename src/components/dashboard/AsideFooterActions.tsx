@@ -14,7 +14,7 @@ export function AsideFooterActions({ onSignOut }: { onSignOut: () => void | Prom
       <button
         type="button"
         onClick={() => void onSignOut()}
-        className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover-strong)] hover:text-[var(--text)]"
+        className="flex w-full items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-medium text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
       >
         Sign out
       </button>

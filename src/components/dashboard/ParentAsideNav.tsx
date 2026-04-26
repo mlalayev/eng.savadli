@@ -56,14 +56,14 @@ export function ParentAsideNav({
   onSignOut: () => void | Promise<void>;
 }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-[var(--border)] px-4 py-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Parent</p>
         <p className="mt-1 truncate text-sm font-semibold text-[var(--text)]">{user.name}</p>
         <p className="truncate text-xs text-[var(--muted)]">{user.email}</p>
       </div>
 
-      <nav className="px-3 py-3" aria-label="Parent">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3" aria-label="Parent">
         <NavSection title="Overview" first>
           <NavList items={overviewItems} />
         </NavSection>

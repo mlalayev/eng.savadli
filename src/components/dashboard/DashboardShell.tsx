@@ -32,7 +32,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-1 flex-col overflow-hidden md:flex-row">
-      <aside className="w-full shrink-0 overflow-y-auto border-b border-[var(--border)] bg-[var(--surface)] md:fixed md:inset-y-0 md:left-0 md:w-64 md:border-b-0 md:border-r">
+      <aside className="w-full shrink-0 overflow-hidden border-b border-[var(--border)] bg-[var(--surface)] md:fixed md:inset-y-0 md:left-0 md:w-64 md:border-b-0 md:border-r">
         <ProfileAside />
       </aside>
       <div className="min-w-0 flex-1 overflow-y-auto bg-[var(--background)] md:ml-64">
