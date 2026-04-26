@@ -42,6 +42,62 @@ async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+function formatRichTextSimple(content: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let key = 0;
+
+  const boldRegex = /\*\*(.*?)\*\*/g;
+  const italicRegex = /\*(.*?)\*/g;
+  const underlineRegex = /_(.*?)_/g;
+
+  let lastIndex = 0;
+  const tokens: Array<{ start: number; end: number; type: "bold" | "italic" | "underline"; content: string }> = [];
+
+  let match: RegExpExecArray | null;
+  boldRegex.lastIndex = 0;
+  while ((match = boldRegex.exec(content)) !== null) {
+    tokens.push({ start: match.index, end: match.index + match[0].length, type: "bold", content: match[1] });
+  }
+
+  italicRegex.lastIndex = 0;
+  while ((match = italicRegex.exec(content)) !== null) {
+    const isBold = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
+    if (!isBold) {
+      tokens.push({ start: match.index, end: match.index + match[0].length, type: "italic", content: match[1] });
+    }
+  }
+
+  underlineRegex.lastIndex = 0;
+  while ((match = underlineRegex.exec(content)) !== null) {
+    const isOther = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
+    if (!isOther) {
+      tokens.push({ start: match.index, end: match.index + match[0].length, type: "underline", content: match[1] });
+    }
+  }
+
+  tokens.sort((a, b) => a.start - b.start);
+
+  tokens.forEach((token) => {
+    if (token.start > lastIndex) {
+      parts.push(<span key={key++}>{content.slice(lastIndex, token.start)}</span>);
+    }
+    if (token.type === "bold") {
+      parts.push(<strong key={key++}>{token.content}</strong>);
+    } else if (token.type === "italic") {
+      parts.push(<em key={key++}>{token.content}</em>);
+    } else if (token.type === "underline") {
+      parts.push(<u key={key++}>{token.content}</u>);
+    }
+    lastIndex = token.end;
+  });
+
+  if (lastIndex < content.length) {
+    parts.push(<span key={key++}>{content.slice(lastIndex)}</span>);
+  }
+
+  return parts.length > 0 ? parts : content;
+}
+
 export default function GradeAttemptPage() {
   const params = useParams();
   const attemptId = typeof params?.id === "string" ? params.id : "";
@@ -53,7 +109,7 @@ export default function GradeAttemptPage() {
   const byQ = useMemo(() => new Map((attempt?.answers ?? []).map((a) => [a.questionId, a.value])), [attempt]);
 
   const manualQuestions = useMemo(() => {
-    return (exam?.questions ?? []).filter((q) => q.type === "writing");
+    return (exam?.questions ?? []).filter((q) => q.type === "writing" || q.type === "rich_text");
   }, [exam]);
 
   const [grades, setGrades] = useState<Record<string, { earned: number; feedback: string }>>({});
@@ -78,7 +134,7 @@ export default function GradeAttemptPage() {
     setGrades((prev) => {
       const next = { ...prev };
       for (const q of exam.questions) {
-        if (q.type !== "writing") continue;
+        if (q.type !== "writing" && q.type !== "rich_text") continue;
         if (!next[q.id]) next[q.id] = { earned: 0, feedback: "" };
       }
       return next;
@@ -151,7 +207,19 @@ export default function GradeAttemptPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
                       {q.type} · {q.points} pts
                     </p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{q.prompt}</p>
+                    {q.description ? (
+                      <p className="mt-2 whitespace-pre-wrap text-xs font-medium text-[var(--muted)] italic border-l-2 border-[var(--border)] pl-2">
+                        {q.description}
+                      </p>
+                    ) : null}
+                    {q.type !== "rich_text" && "prompt" in q ? (
+                      <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{q.prompt}</p>
+                    ) : null}
+                    {q.type === "rich_text" && "content" in q ? (
+                      <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
+                        {formatRichTextSimple(q.content)}
+                      </div>
+                    ) : null}
                     {"promptImageUrl" in q && q.promptImageUrl ? (
                       <img
                         src={q.promptImageUrl}

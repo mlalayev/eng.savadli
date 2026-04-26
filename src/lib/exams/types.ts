@@ -1,7 +1,7 @@
 export type ExamProgram = "ielts" | "dsat" | "general";
 export type ExamMode = "full" | "drill";
 
-export type QuestionType = "mcq_single" | "short_text" | "numeric" | "writing";
+export type QuestionType = "mcq_single" | "short_text" | "numeric" | "writing" | "rich_text";
 
 /** One MCQ option (text and/or image). */
 export type ExamChoice = {
@@ -59,6 +59,8 @@ export type ExamQuestion =
       prompt: string;
       /** Optional image shown with the question stem. */
       promptImageUrl?: string;
+      /** Optional description/context for IELTS questions */
+      description?: string;
       choices: ExamChoice[];
       correctChoiceIndex: number;
       points: number;
@@ -70,6 +72,7 @@ export type ExamQuestion =
       type: "short_text";
       prompt: string;
       promptImageUrl?: string;
+      description?: string;
       correctAnswer: string;
       points: number;
       satSkill?: SatQuestionSkill;
@@ -80,6 +83,7 @@ export type ExamQuestion =
       type: "numeric";
       prompt: string;
       promptImageUrl?: string;
+      description?: string;
       correctNumber: number;
       points: number;
       satSkill?: SatQuestionSkill;
@@ -90,8 +94,20 @@ export type ExamQuestion =
       type: "writing";
       prompt: string;
       promptImageUrl?: string;
+      description?: string;
       points: number;
       rubric?: string;
+      satSkill?: SatQuestionSkill;
+    }
+  | {
+      id: string;
+      sectionId?: string;
+      type: "rich_text";
+      /** Rich text content with markdown formatting */
+      content: string;
+      promptImageUrl?: string;
+      description?: string;
+      points: number;
       satSkill?: SatQuestionSkill;
     };
 
