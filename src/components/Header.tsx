@@ -63,9 +63,7 @@ export function Header() {
               priority
             />
           </span>
-          <span className="truncate transition group-hover:text-[var(--accent)]">
-            {siteConfig.name}
-          </span>
+          <span className="sr-only">{siteConfig.name}</span>
         </Link>
 
         <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
