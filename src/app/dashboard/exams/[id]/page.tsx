@@ -166,6 +166,10 @@ export default function ExamDetailPage() {
   const allowedTypes = useMemo((): QuestionType[] => {
     if (!exam) return ["mcq_single", "short_text", "numeric", "writing"];
     if (exam.program === "ielts" && exam.mode === "full") {
+      if (sectionId.startsWith("writing_") || sectionId.startsWith("speaking_")) return ["writing"];
+      return ["mcq_single", "short_text", "numeric"];
+    }
+    if (exam.program === "ielts" && exam.mode === "drill") {
       if (sectionId === "writing" || sectionId === "speaking") return ["writing"];
       return ["mcq_single", "short_text", "numeric"];
     }
