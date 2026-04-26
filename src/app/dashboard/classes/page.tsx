@@ -299,7 +299,7 @@ export default function ClassesPage() {
 
       if (user?.role === "creator") {
         const us = await api<{ users: UserRow[] }>("/api/users");
-        setDirectory(us.users);
+      setDirectory(us.users);
       } else {
         setDirectory([]);
       }
@@ -1051,50 +1051,50 @@ export default function ClassesPage() {
               <form className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5" onSubmit={handleCreate}>
                 <div className="space-y-5">
                 <label className="block text-xs font-medium text-[var(--muted)]">
-                  Title
-                  <input
+                Title
+                <input
                     className="mt-1 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. Saturday DSAT cohort"
-                    required
-                  />
-                </label>
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Saturday DSAT cohort"
+                  required
+                />
+              </label>
                 <label className="block text-xs font-medium text-[var(--muted)]">
-                  Category
-                  <select
+                Category
+                <select
                     className="mt-1 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value as ProgramCategory)}
-                  >
-                    <option value="dsat">SAT</option>
-                    <option value="ielts">IELTS</option>
-                    <option value="general">General English</option>
-                  </select>
-                </label>
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as ProgramCategory)}
+                >
+                  <option value="dsat">SAT</option>
+                  <option value="ielts">IELTS</option>
+                  <option value="general">General English</option>
+                </select>
+              </label>
 
-                {isCreator ? (
-                  <div>
+              {isCreator ? (
+                <div>
                     <p className="text-xs font-medium text-[var(--muted)]">Teachers on this class</p>
                     <p className="mt-1 text-[11px] text-[var(--faint)]">Include yourself or any teacher/creator accounts.</p>
-                    <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
-                      {teachersAndCreators.map((t) => (
-                        <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={newTeacherIds.includes(t.id)}
-                            onChange={() => toggleTeacher(t.id)}
-                          />
-                          <span className="truncate">{t.name}</span>
-                          <span className="truncate text-xs text-[var(--muted)]">{t.email}</span>
-                        </label>
-                      ))}
-                      {teachersAndCreators.length === 0 ? (
-                        <p className="text-xs text-[var(--muted)]">No teacher accounts found.</p>
-                      ) : null}
-                    </div>
+                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+                    {teachersAndCreators.map((t) => (
+                      <label key={t.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newTeacherIds.includes(t.id)}
+                          onChange={() => toggleTeacher(t.id)}
+                        />
+                        <span className="truncate">{t.name}</span>
+                        <span className="truncate text-xs text-[var(--muted)]">{t.email}</span>
+                      </label>
+                    ))}
+                    {teachersAndCreators.length === 0 ? (
+                      <p className="text-xs text-[var(--muted)]">No teacher accounts found.</p>
+                    ) : null}
                   </div>
-                ) : null}
+                </div>
+              ) : null}
 
                 <StudentSearchAddBlock
                   label="Students (optional)"
@@ -1127,8 +1127,8 @@ export default function ClassesPage() {
                       ))}
                     </ul>
                   </div>
-                ) : null}
-                </div>
+                  ) : null}
+              </div>
 
                 <div className="mt-5 border-t border-[var(--border)] pt-4">
                   <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1139,16 +1139,16 @@ export default function ClassesPage() {
                     >
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={creating || loading}
+              <button
+                type="submit"
+                disabled={creating || loading}
                       className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-                    >
-                      {creating ? "Creating…" : "Create class"}
-                    </button>
+              >
+                {creating ? "Creating…" : "Create class"}
+              </button>
                   </div>
                 </div>
-              </form>
+            </form>
               </div>
             </div>
           </div>
@@ -1156,8 +1156,8 @@ export default function ClassesPage() {
 
         {addHwOpen ? (
           <div className="fixed inset-0 z-50" aria-hidden={!addHwOpen}>
-            <button
-              type="button"
+              <button
+                type="button"
               className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[2px]"
               aria-label="Close dialog"
               onClick={() => closeAddHomework()}
@@ -1188,8 +1188,8 @@ export default function ClassesPage() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                       <path d="M18 6L6 18M6 6l12 12" />
                     </svg>
-                  </button>
-                </div>
+              </button>
+            </div>
 
               {hwSubmitError ? (
                 <p
@@ -1233,26 +1233,26 @@ export default function ClassesPage() {
                     onChange={(e) => setHwDueAt(e.target.value)}
                   />
                 </label>
-                </div>
+                        </div>
 
                 <div className="mt-5 border-t border-[var(--border)] pt-4">
                   <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
+                          <button
+                            type="button"
                       onClick={() => closeAddHomework()}
                       className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
                     >
                       Cancel
-                    </button>
-                    <button
+                          </button>
+                          <button
                       type="submit"
                       disabled={hwSubmitting}
                       className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
                     >
                       {hwSubmitting ? "Saving…" : "Post homework"}
-                    </button>
-                  </div>
-                </div>
+                          </button>
+                        </div>
+                      </div>
               </form>
               </div>
             </div>
@@ -1410,14 +1410,14 @@ function SubmissionsPanel({
             className="h-9 w-48 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--text)] placeholder:text-[var(--faint)]"
           />
           <label className="inline-flex h-9 select-none items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--text)]">
-            <input
-              type="checkbox"
+                                <input
+                                  type="checkbox"
               checked={onlyMissing}
               onChange={(e) => setOnlyMissing(e.target.checked)}
-            />
+                                />
             Missing only
-          </label>
-        </div>
+                              </label>
+                          </div>
       </div>
 
       {rows.length === 0 ? (
@@ -1433,8 +1433,8 @@ function SubmissionsPanel({
                   const active = r.studentId === (selected?.studentId ?? null);
                   return (
                     <li key={r.studentId}>
-                      <button
-                        type="button"
+                          <button
+                            type="button"
                         onClick={() => setSelectedStudentId(r.studentId)}
                         className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                           active
@@ -1464,7 +1464,7 @@ function SubmissionsPanel({
                   );
                 })
               )}
-            </ul>
+              </ul>
           </div>
 
           <div className="min-h-0 overflow-y-auto sm:col-span-2">
@@ -1505,8 +1505,8 @@ function SubmissionsPanel({
                 </div>
               </div>
             )}
-          </div>
         </div>
+      </div>
       )}
     </div>
   );
