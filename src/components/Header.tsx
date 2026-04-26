@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
@@ -52,8 +53,15 @@ export function Header() {
           href="/"
           className="group flex min-w-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-[var(--text)] sm:text-base"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[13px] font-bold text-[var(--on-accent)] sm:h-9 sm:w-9">
-            {siteConfig.shortName}
+          <span className="relative h-8 w-[104px] shrink-0 sm:h-9 sm:w-[120px]">
+            <Image
+              src="/logoSmall.png"
+              alt={siteConfig.name}
+              fill
+              sizes="120px"
+              className="object-contain"
+              priority
+            />
           </span>
           <span className="truncate transition group-hover:text-[var(--accent)]">
             {siteConfig.name}

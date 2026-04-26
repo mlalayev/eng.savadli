@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { siteConfig } from "@/lib/site";
 
@@ -6,7 +7,15 @@ export function Footer() {
     <footer className="border-t border-[var(--border)] bg-[var(--surface)] py-10">
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
-          <p className="text-sm font-semibold text-[var(--text)]">{siteConfig.name}</p>
+          <div className="relative h-16 w-[220px]">
+            <Image
+              src="/logo.png"
+              alt={siteConfig.name}
+              fill
+              sizes="220px"
+              className="object-contain"
+            />
+          </div>
           <p className="mt-1 max-w-sm text-sm text-[var(--muted)]">{siteConfig.description}</p>
         </div>
         <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
