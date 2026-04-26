@@ -9,7 +9,7 @@ export function Footer() {
         <div>
           <div className="relative h-16 w-[220px]">
             <Image
-              src="/logo.png"
+              src="/logoo.png"
               alt={siteConfig.name}
               fill
               sizes="220px"

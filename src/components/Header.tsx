@@ -55,7 +55,7 @@ export function Header() {
         >
           <span className="relative h-8 w-[104px] shrink-0 sm:h-9 sm:w-[120px]">
             <Image
-              src="/logoSmall.png"
+              src="/logooSmall.png"
               alt={siteConfig.name}
               fill
               sizes="120px"
