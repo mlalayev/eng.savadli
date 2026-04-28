@@ -1,73 +1,115 @@
-import styles from "./not-found.module.css";
+import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <main className={styles.page}>
-      <div className={styles.main_wrapper}>
-        <div className={styles.main}>
-          <div className={styles.antenna}>
-            <div className={styles.antenna_shadow}></div>
-            <div className={styles.a1}></div>
-            <div className={styles.a1d}></div>
-            <div className={styles.a2}></div>
-            <div className={styles.a2d}></div>
-          </div>
-          <div className={styles.tv}>
-            <div>
-              <svg
-                className={styles.curve_svg}
-                version="1.1"
-                xmlns="http://www.w3.org/2000/svg"
-                xmlnsXlink="http://www.w3.org/1999/xlink"
-                viewBox="0 0 189.929 189.929"
-                xmlSpace="preserve"
+    <main className="relative flex min-h-[calc(100vh-64px)] flex-1 items-center justify-center overflow-hidden px-6 py-16">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(1100px_circle_at_30%_20%,color-mix(in_srgb,var(--accent)_20%,transparent),transparent_60%),radial-gradient(900px_circle_at_70%_75%,color-mix(in_srgb,var(--accent)_14%,transparent),transparent_60%)]"
+      />
+
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="grid items-center gap-10 lg:grid-cols-2">
+          <div className="order-2 lg:order-1">
+            <p className="text-sm font-medium text-[var(--muted)]">Error 404</p>
+            <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
+              This page doesn’t exist.
+            </h1>
+            <p className="mt-4 max-w-prose text-pretty text-base leading-relaxed text-[var(--muted)]">
+              The link might be broken, or the page may have been moved. Use the
+              options below to get back on track.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/"
+                className="inline-flex items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] shadow-sm transition-colors hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
               >
-                <path d="M70.343,70.343c-30.554,30.553-44.806,72.7-39.102,115.635l-29.738,3.951C-5.442,137.659,11.917,86.34,49.129,49.13C86.34,11.918,137.664-5.445,189.928,1.502l-3.95,29.738C143.041,25.54,100.895,39.789,70.343,70.343z"></path>
-              </svg>
+                Go to home
+              </Link>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text)] shadow-sm transition-colors hover:bg-[var(--hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+              >
+                Dashboard
+              </Link>
             </div>
-            <div className={styles.display_div}>
-              <div className={styles.screen_out}>
-                <div className={styles.screen_out1}>
-                  <div className={styles.screen}>
-                    <span className={styles.notfound_text}> NOT FOUND</span>
+
+            <div className="mt-6 text-sm text-[var(--faint)]">
+              If you think this is a mistake, try refreshing or go back to a
+              known page.
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <div className="relative rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_0_var(--shadow-ring),0_10px_30px_rgb(0_0_0_/_0.05)]">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] blur-2xl" />
+              <div className="absolute -bottom-12 -left-12 h-44 w-44 rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] blur-2xl" />
+
+              <div className="relative">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
                   </div>
-                  <div className={styles.screenM}>
-                    <span className={styles.notfound_text}> NOT FOUND</span>
+                  <div className="text-xs text-[var(--faint)]">
+                    dsat://not-found
                   </div>
+                </div>
+
+                <div className="mt-6 flex items-end justify-between gap-6">
+                  <div>
+                    <div className="text-6xl font-semibold tracking-tight text-[var(--text)] sm:text-7xl">
+                      404
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-[var(--muted)]">
+                      Page not found
+                    </div>
+                  </div>
+
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 120 120"
+                    className="h-24 w-24 text-[var(--accent)]"
+                    fill="none"
+                  >
+                    <path
+                      d="M60 12c26.5 0 48 21.5 48 48s-21.5 48-48 48S12 86.5 12 60 33.5 12 60 12Z"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      opacity="0.25"
+                    />
+                    <path
+                      d="M44 48c0-8.8 7.2-16 16-16s16 7.2 16 16"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      opacity="0.9"
+                    />
+                    <path
+                      d="M42 78c6.5 8 17 13 28 13s21.5-5 28-13"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      opacity="0.9"
+                    />
+                    <path
+                      d="M50 56h.01M70 56h.01"
+                      stroke="currentColor"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--muted)]">
+                  Tip: check the URL for typos, or use the navigation menu to
+                  find what you need.
                 </div>
               </div>
             </div>
-            <div className={styles.lines}>
-              <div className={styles.line1}></div>
-              <div className={styles.line2}></div>
-              <div className={styles.line3}></div>
-            </div>
-            <div className={styles.buttons_div}>
-              <div className={styles.b1}>
-                <div></div>
-              </div>
-              <div className={styles.b2}></div>
-              <div className={styles.speakers}>
-                <div className={styles.g1}>
-                  <div className={styles.g11}></div>
-                  <div className={styles.g12}></div>
-                  <div className={styles.g13}></div>
-                </div>
-                <div className={styles.g}></div>
-                <div className={styles.g}></div>
-              </div>
-            </div>
           </div>
-          <div className={styles.bottom}>
-            <div className={styles.base1}></div>
-            <div className={styles.base2}></div>
-            <div className={styles.base3}></div>
-          </div>
-        </div>
-        <div className={styles.text_404}>
-          <div className={styles.text_4041}>4</div>
-          <div className={styles.text_4042}>0</div>
-          <div className={styles.text_4043}>4</div>
         </div>
       </div>
     </main>
