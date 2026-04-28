@@ -74,31 +74,58 @@ export default function NotFound() {
                     className="h-24 w-24 text-[var(--accent)]"
                     fill="none"
                   >
+                    {/* Clean “compass / lost” icon */}
                     <path
                       d="M60 12c26.5 0 48 21.5 48 48s-21.5 48-48 48S12 86.5 12 60 33.5 12 60 12Z"
                       stroke="currentColor"
                       strokeWidth="6"
-                      opacity="0.25"
+                      opacity="0.18"
                     />
                     <path
-                      d="M44 48c0-8.8 7.2-16 16-16s16 7.2 16 16"
+                      d="M60 28c17.7 0 32 14.3 32 32S77.7 92 60 92 28 77.7 28 60s14.3-32 32-32Z"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      opacity="0.35"
+                    />
+                    <path
+                      d="M60 38v6"
                       stroke="currentColor"
                       strokeWidth="6"
                       strokeLinecap="round"
-                      opacity="0.9"
+                      opacity="0.7"
                     />
                     <path
-                      d="M42 78c6.5 8 17 13 28 13s21.5-5 28-13"
+                      d="M60 76v6"
                       stroke="currentColor"
                       strokeWidth="6"
                       strokeLinecap="round"
+                      opacity="0.7"
+                    />
+                    <path
+                      d="M38 60h6"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      opacity="0.7"
+                    />
+                    <path
+                      d="M76 60h6"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      opacity="0.7"
+                    />
+                    <path
+                      d="M73 47 64.5 68.5 47 73 55.5 51.5 73 47Z"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinejoin="round"
                       opacity="0.9"
                     />
                     <path
-                      d="M50 56h.01M70 56h.01"
-                      stroke="currentColor"
-                      strokeWidth="10"
-                      strokeLinecap="round"
+                      d="M58 62a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z"
+                      fill="currentColor"
+                      opacity="0.9"
                     />
                   </svg>
                 </div>
