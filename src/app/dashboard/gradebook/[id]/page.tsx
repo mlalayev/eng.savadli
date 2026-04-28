@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
+import { formatRichText } from "@/components/exams/shared/helpers";
 import type { ExamQuestion } from "@/lib/exams/types";
 
 type Attempt = {
@@ -40,62 +41,6 @@ async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
   return data as T;
-}
-
-function formatRichTextSimple(content: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  let key = 0;
-
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  const italicRegex = /\*(.*?)\*/g;
-  const underlineRegex = /_(.*?)_/g;
-
-  let lastIndex = 0;
-  const tokens: Array<{ start: number; end: number; type: "bold" | "italic" | "underline"; content: string }> = [];
-
-  let match: RegExpExecArray | null;
-  boldRegex.lastIndex = 0;
-  while ((match = boldRegex.exec(content)) !== null) {
-    tokens.push({ start: match.index, end: match.index + match[0].length, type: "bold", content: match[1] });
-  }
-
-  italicRegex.lastIndex = 0;
-  while ((match = italicRegex.exec(content)) !== null) {
-    const isBold = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
-    if (!isBold) {
-      tokens.push({ start: match.index, end: match.index + match[0].length, type: "italic", content: match[1] });
-    }
-  }
-
-  underlineRegex.lastIndex = 0;
-  while ((match = underlineRegex.exec(content)) !== null) {
-    const isOther = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
-    if (!isOther) {
-      tokens.push({ start: match.index, end: match.index + match[0].length, type: "underline", content: match[1] });
-    }
-  }
-
-  tokens.sort((a, b) => a.start - b.start);
-
-  tokens.forEach((token) => {
-    if (token.start > lastIndex) {
-      parts.push(<span key={key++}>{content.slice(lastIndex, token.start)}</span>);
-    }
-    if (token.type === "bold") {
-      parts.push(<strong key={key++}>{token.content}</strong>);
-    } else if (token.type === "italic") {
-      parts.push(<em key={key++}>{token.content}</em>);
-    } else if (token.type === "underline") {
-      parts.push(<u key={key++}>{token.content}</u>);
-    }
-    lastIndex = token.end;
-  });
-
-  if (lastIndex < content.length) {
-    parts.push(<span key={key++}>{content.slice(lastIndex)}</span>);
-  }
-
-  return parts.length > 0 ? parts : content;
 }
 
 export default function GradeAttemptPage() {
@@ -208,16 +153,16 @@ export default function GradeAttemptPage() {
                       {q.type} · {q.points} pts
                     </p>
                     {q.description ? (
-                      <p className="mt-2 whitespace-pre-wrap text-xs font-medium text-[var(--muted)] italic border-l-2 border-[var(--border)] pl-2">
-                        {q.description}
-                      </p>
+                      <div className="mt-2 whitespace-pre-wrap text-xs font-medium text-[var(--muted)] italic border-l-2 border-[var(--border)] pl-2">
+                        {formatRichText(q.description)}
+                      </div>
                     ) : null}
                     {q.type !== "rich_text" && "prompt" in q ? (
-                      <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{q.prompt}</p>
+                      <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{formatRichText(q.prompt)}</div>
                     ) : null}
                     {q.type === "rich_text" && "content" in q ? (
                       <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
-                        {formatRichTextSimple(q.content)}
+                        {formatRichText(q.content)}
                       </div>
                     ) : null}
                     {"promptImageUrl" in q && q.promptImageUrl ? (

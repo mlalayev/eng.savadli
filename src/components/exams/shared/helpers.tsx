@@ -26,50 +26,72 @@ export function formatRichText(content: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let key = 0;
 
+  // Supported markers (teacher-friendly):
+  // - **bold**
+  // - __italic__ (also supports *italic* for backwards compatibility)
+  // - ~~strikethrough~~
+  // - ~underline~ (also supports _underline_ for backwards compatibility)
+  // - [title] ... [title]
   const boldRegex = /\*\*(.*?)\*\*/g;
-  const italicRegex = /\*(.*?)\*/g;
-  const underlineRegex = /_(.*?)_/g;
+  const italicDoubleUnderscoreRegex = /__(.*?)__/g;
+  const italicStarRegex = /\*(.*?)\*/g;
+  const strikeRegex = /~~(.*?)~~/g;
+  const underlineTildeRegex = /~(.*?)~/g;
+  const underlineUnderscoreRegex = /_(.*?)_/g;
+  const titleRegex = /\[title\]([\s\S]*?)\[title\]/gi;
+
+  type TokenType = "title" | "bold" | "italic" | "underline" | "strike";
+  const tokens: Array<{ start: number; end: number; type: TokenType; content: string }> = [];
+
+  function pushMatches(regex: RegExp, type: TokenType) {
+    regex.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      tokens.push({ start: match.index, end: match.index + match[0].length, type, content: match[1] ?? "" });
+    }
+  }
+
+  // Order matters: longer / more specific first to avoid conflicts
+  pushMatches(titleRegex, "title");
+  pushMatches(strikeRegex, "strike");
+  pushMatches(boldRegex, "bold");
+  pushMatches(italicDoubleUnderscoreRegex, "italic");
+  pushMatches(underlineTildeRegex, "underline");
+  // Backwards-compatible fallbacks (avoid overlaps)
+  pushMatches(italicStarRegex, "italic");
+  pushMatches(underlineUnderscoreRegex, "underline");
+
+  // Remove overlaps: keep earliest tokens first; if a token starts inside an existing token, skip it
+  tokens.sort((a, b) => a.start - b.start || b.end - a.end);
+  const filtered: typeof tokens = [];
+  for (const t of tokens) {
+    const overlaps = filtered.some((x) => x.start < t.end && t.start < x.end);
+    if (!overlaps) filtered.push(t);
+  }
+  filtered.sort((a, b) => a.start - b.start);
 
   let lastIndex = 0;
-  const tokens: Array<{ start: number; end: number; type: "bold" | "italic" | "underline"; content: string }> = [];
-
-  let match: RegExpExecArray | null;
-  boldRegex.lastIndex = 0;
-  while ((match = boldRegex.exec(content)) !== null) {
-    tokens.push({ start: match.index, end: match.index + match[0].length, type: "bold", content: match[1] });
-  }
-
-  italicRegex.lastIndex = 0;
-  while ((match = italicRegex.exec(content)) !== null) {
-    const isBold = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
-    if (!isBold) {
-      tokens.push({ start: match.index, end: match.index + match[0].length, type: "italic", content: match[1] });
-    }
-  }
-
-  underlineRegex.lastIndex = 0;
-  while ((match = underlineRegex.exec(content)) !== null) {
-    const isOther = tokens.some((t) => t.start <= match!.index && match!.index < t.end);
-    if (!isOther) {
-      tokens.push({ start: match.index, end: match.index + match[0].length, type: "underline", content: match[1] });
-    }
-  }
-
-  tokens.sort((a, b) => a.start - b.start);
-
-  tokens.forEach((token) => {
+  for (const token of filtered) {
     if (token.start > lastIndex) {
       parts.push(<span key={key++}>{content.slice(lastIndex, token.start)}</span>);
     }
-    if (token.type === "bold") {
+    if (token.type === "title") {
+      parts.push(
+        <span key={key++} className="block text-base font-semibold text-[var(--text)]">
+          {token.content.trim()}
+        </span>,
+      );
+    } else if (token.type === "bold") {
       parts.push(<strong key={key++}>{token.content}</strong>);
     } else if (token.type === "italic") {
       parts.push(<em key={key++}>{token.content}</em>);
     } else if (token.type === "underline") {
       parts.push(<u key={key++}>{token.content}</u>);
+    } else if (token.type === "strike") {
+      parts.push(<s key={key++}>{token.content}</s>);
     }
     lastIndex = token.end;
-  });
+  }
 
   if (lastIndex < content.length) {
     parts.push(<span key={key++}>{content.slice(lastIndex)}</span>);

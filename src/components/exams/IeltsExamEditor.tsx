@@ -497,6 +497,31 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
                   }
                 />
 
+                <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Formatting help</p>
+                  <div className="mt-2 space-y-1 text-xs text-[var(--muted)]">
+                    <p>
+                      New lines work normally: <span className="font-semibold text-[var(--text)]">Enter</span> = new line, blank
+                      line = extra spacing.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-[var(--text)]">**bold**</span> → bold
+                    </p>
+                    <p>
+                      <span className="font-semibold text-[var(--text)]">__italic__</span> → italic
+                    </p>
+                    <p>
+                      <span className="font-semibold text-[var(--text)]">~underline~</span> → underline
+                    </p>
+                    <p>
+                      <span className="font-semibold text-[var(--text)]">~~strikethrough~~</span> → crossed out
+                    </p>
+                    <p>
+                      <span className="font-semibold text-[var(--text)]">[title] My Title [title]</span> → passage title
+                    </p>
+                  </div>
+                </div>
+
                 {ieltsGroup === "listening" ? (
                   <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Listening audio</p>
@@ -687,6 +712,16 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
                 placeholder="Automatically filled when you select a question family above"
               />
             </label>
+            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <p className="text-xs font-semibold text-[var(--faint)]">Formatting help</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Use <span className="font-semibold text-[var(--text)]">**bold**</span>,{" "}
+                <span className="font-semibold text-[var(--text)]">__italic__</span>,{" "}
+                <span className="font-semibold text-[var(--text)]">~underline~</span>,{" "}
+                <span className="font-semibold text-[var(--text)]">~~strikethrough~~</span>,{" "}
+                <span className="font-semibold text-[var(--text)]">[title] ... [title]</span>. New lines work normally.
+              </p>
+            </div>
           </div>
 
           {newType === "rich_text" ? (
