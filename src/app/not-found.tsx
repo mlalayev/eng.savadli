@@ -58,7 +58,7 @@ export default function NotFound() {
                   </div>
                 </div>
 
-                <div className="mt-6 flex items-end justify-between gap-6">
+                <div className="mt-6">
                   <div>
                     <div className="text-6xl font-semibold tracking-tight text-[var(--text)] sm:text-7xl">
                       404
@@ -67,67 +67,6 @@ export default function NotFound() {
                       Page not found
                     </div>
                   </div>
-
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 120 120"
-                    className="h-24 w-24 text-[var(--accent)]"
-                    fill="none"
-                  >
-                    {/* Clean “compass / lost” icon */}
-                    <path
-                      d="M60 12c26.5 0 48 21.5 48 48s-21.5 48-48 48S12 86.5 12 60 33.5 12 60 12Z"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      opacity="0.18"
-                    />
-                    <path
-                      d="M60 28c17.7 0 32 14.3 32 32S77.7 92 60 92 28 77.7 28 60s14.3-32 32-32Z"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      opacity="0.35"
-                    />
-                    <path
-                      d="M60 38v6"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      opacity="0.7"
-                    />
-                    <path
-                      d="M60 76v6"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      opacity="0.7"
-                    />
-                    <path
-                      d="M38 60h6"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      opacity="0.7"
-                    />
-                    <path
-                      d="M76 60h6"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      opacity="0.7"
-                    />
-                    <path
-                      d="M73 47 64.5 68.5 47 73 55.5 51.5 73 47Z"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinejoin="round"
-                      opacity="0.9"
-                    />
-                    <path
-                      d="M58 62a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z"
-                      fill="currentColor"
-                      opacity="0.9"
-                    />
-                  </svg>
                 </div>
 
                 <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--muted)]">
