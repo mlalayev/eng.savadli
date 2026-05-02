@@ -17,6 +17,8 @@ export function questionTypeLabel(type: QuestionType): string {
       return "Written response";
     case "rich_text":
       return "Rich text (formatted content)";
+    case "html_interactive":
+      return "HTML Interactive (Custom HTML/CSS)";
     default:
       return type;
   }

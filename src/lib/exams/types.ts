@@ -1,7 +1,7 @@
 export type ExamProgram = "ielts" | "dsat" | "general";
 export type ExamMode = "full" | "drill";
 
-export type QuestionType = "mcq_single" | "short_text" | "numeric" | "writing" | "rich_text";
+export type QuestionType = "mcq_single" | "short_text" | "numeric" | "writing" | "rich_text" | "html_interactive";
 
 /** One MCQ option (text and/or image). */
 export type ExamChoice = {
@@ -107,6 +107,23 @@ export type ExamQuestion =
       content: string;
       promptImageUrl?: string;
       description?: string;
+      points: number;
+      satSkill?: SatQuestionSkill;
+    }
+  | {
+      id: string;
+      sectionId?: string;
+      type: "html_interactive";
+      /** HTML code with input elements (text/radio) */
+      htmlContent: string;
+      /** CSS styling for the HTML */
+      cssContent?: string;
+      /** Instructions/prompt shown above the interactive HTML */
+      prompt: string;
+      promptImageUrl?: string;
+      description?: string;
+      /** Array of correct answers: { name: "q1", value: "correct answer" } or { name: "q2", value: "option_a" } */
+      correctAnswers: Array<{ name: string; value: string; type: "text" | "radio" }>;
       points: number;
       satSkill?: SatQuestionSkill;
     };

@@ -14,7 +14,6 @@ import {
   ieltsGroupLabel,
 } from "./shared/helpers";
 import { ExamHeader } from "./shared/ExamHeader";
-import { getIeltsQuestionFamilies, IELTS_QUESTION_FAMILIES } from "./shared/ielts-question-families";
 
 type IeltsExamEditorProps = {
   exam: Exam;
@@ -38,9 +37,6 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
 
   // Add question form state
   const [newType, setNewType] = useState<ExamQuestion["type"]>("mcq_single");
-  const [selectedFamily, setSelectedFamily] = useState<string>("");
-  const [questionStartNumber, setQuestionStartNumber] = useState<number>(1);
-  const [questionEndNumber, setQuestionEndNumber] = useState<number>(1);
   const [prompt, setPrompt] = useState("");
   const [promptImageUrl, setPromptImageUrl] = useState("");
   const [description, setDescription] = useState("");
@@ -57,6 +53,11 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
   const [correctNumber, setCorrectNumber] = useState<number>(0);
   const [rubric, setRubric] = useState("");
   const [imageUploadBusy, setImageUploadBusy] = useState<string | null>(null);
+
+  // HTML interactive question state
+  const [htmlContent, setHtmlContent] = useState("");
+  const [cssContent, setCssContent] = useState("");
+  const [htmlCorrectAnswers, setHtmlCorrectAnswers] = useState<Array<{ name: string; value: string; type: "text" | "radio" }>>([]);
 
   // Edit question state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -138,33 +139,14 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
   const allowedTypes: QuestionType[] = useMemo(() => {
     if (exam.program === "ielts" && exam.mode === "full") {
       if (sectionId.startsWith("writing_") || sectionId.startsWith("speaking_")) return ["writing"];
-      return ["mcq_single", "short_text", "numeric", "rich_text"];
+      return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
     }
     if (exam.program === "ielts" && exam.mode === "drill") {
       if (sectionId === "writing" || sectionId === "speaking") return ["writing"];
-      return ["mcq_single", "short_text", "numeric", "rich_text"];
+      return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
     }
-    return ["mcq_single", "short_text", "numeric", "rich_text"];
+    return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
   }, [exam.program, exam.mode, sectionId]);
-
-  const availableQuestionFamilies = useMemo(() => {
-    return getIeltsQuestionFamilies(ieltsGroup);
-  }, [ieltsGroup]);
-
-  // Auto-populate description when family is selected
-  useEffect(() => {
-    if (selectedFamily) {
-      const family = IELTS_QUESTION_FAMILIES.find((f) => f.id === selectedFamily);
-      if (family) {
-        const rangeText =
-          questionStartNumber === questionEndNumber
-            ? `Question ${questionStartNumber}`
-            : `Questions ${questionStartNumber}-${questionEndNumber}`;
-        setDescription(`${rangeText}\n\n${family.description}`);
-        setNewType(family.questionType);
-      }
-    }
-  }, [selectedFamily, questionStartNumber, questionEndNumber]);
 
   const totalPoints = useMemo(() => localQuestions.reduce((sum, q) => sum + q.points, 0), [localQuestions]);
 
@@ -298,9 +280,9 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
     setPromptImageUrl("");
     setDescription("");
     setRichTextContent("");
-    setSelectedFamily("");
-    setQuestionStartNumber(1);
-    setQuestionEndNumber(1);
+    setHtmlContent("");
+    setCssContent("");
+    setHtmlCorrectAnswers([]);
     setChoiceRows([
       { ...emptyChoiceRow(), text: "" },
       { ...emptyChoiceRow(), text: "" },
@@ -625,70 +607,7 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
         </div>
 
         <form className="mt-5 space-y-5" onSubmit={addQuestion}>
-          {/* Question Family Selector */}
-          <div className="rounded-xl border-2 border-[var(--accent)]/20 bg-[var(--accent-soft)] p-4">
-            <p className="mb-3 text-sm font-semibold text-[var(--accent)]">Step 1: Choose Question Family (Recommended)</p>
-            
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Question Family
-                <select
-                  className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                  value={selectedFamily}
-                  onChange={(e) => setSelectedFamily(e.target.value)}
-                >
-                  <option value="">-- Select a question family --</option>
-                  {availableQuestionFamilies.map((family) => (
-                    <option key={family.id} value={family.id}>
-                      {family.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block text-sm font-medium text-[var(--text)]">
-                  From Q#
-                  <input
-                    className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                    type="number"
-                    min={1}
-                    max={40}
-                    value={questionStartNumber}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setQuestionStartNumber(val);
-                      if (val > questionEndNumber) setQuestionEndNumber(val);
-                    }}
-                  />
-                </label>
-                <label className="block text-sm font-medium text-[var(--text)]">
-                  To Q#
-                  <input
-                    className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                    type="number"
-                    min={questionStartNumber}
-                    max={40}
-                    value={questionEndNumber}
-                    onChange={(e) => setQuestionEndNumber(Number(e.target.value))}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {selectedFamily ? (
-              <div className="mt-3 rounded-lg bg-[var(--background)] p-3">
-                <p className="text-xs font-semibold text-[var(--faint)]">Auto-generated description:</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text)]">{description}</p>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-[var(--muted)]">
-                Select a question family to auto-fill the description with standard IELTS question instructions.
-              </p>
-            )}
-          </div>
-
-          {newType !== "rich_text" ? (
+          {newType !== "rich_text" && newType !== "html_interactive" ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
               <label className="block text-sm font-medium text-[var(--text)]">
                 Prompt
@@ -704,12 +623,12 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
 
           <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
             <label className="block text-sm font-medium text-[var(--text)]">
-              Description / Context (auto-filled from family)
+              Description / Context (optional)
               <textarea
                 className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Automatically filled when you select a question family above"
+                placeholder="Add instructions or context for the question"
               />
             </label>
             <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
