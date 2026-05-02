@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
-import { formatRichText } from "@/components/exams/shared/helpers";
+import { formatRichText, ieltsGroupForSectionId } from "@/components/exams/shared/helpers";
+import type { IeltsGroup } from "@/components/exams/shared/types";
 import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
 import type { ExamQuestion } from "@/lib/exams/types";
 
@@ -36,6 +37,15 @@ type Attempt = {
   breakdown: Array<{ questionId: string; points: number; earned: number; auto: boolean }>;
 };
 
+const GROUP_TIME_SECONDS: Record<IeltsGroup, number> = {
+  listening: 30 * 60,
+  reading: 60 * 60,
+  writing: 60 * 60,
+  speaking: 30 * 60,
+};
+
+const GROUP_ORDER: IeltsGroup[] = ["listening", "reading", "writing", "speaking"];
+
 async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, init);
   const data: unknown = await res.json().catch(() => ({}));
@@ -52,6 +62,50 @@ async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+/** Short pill label: listening_s1 → p1, reading_p2 → p2, writing_t1 → p1, speaking_p3 → p3 */
+function partShortLabel(sectionId: string): string {
+  const listen = sectionId.match(/^listening_s(\d+)$/i);
+  if (listen) return `p${listen[1]}`;
+  const read = sectionId.match(/^reading_(p\d+)$/i);
+  if (read) return read[1].toLowerCase();
+  const write = sectionId.match(/^writing_t(\d+)$/i);
+  if (write) return `p${write[1]}`;
+  const speak = sectionId.match(/^speaking_(p\d+)$/i);
+  if (speak) return speak[1].toLowerCase();
+  return sectionId;
+}
+
+/** Drill mode uses a single section id per skill (e.g. `listening`). */
+function partButtonLabel(sectionId: string, partsInGroup: number): string {
+  if (partsInGroup === 1) {
+    const g = ieltsGroupForSectionId(sectionId);
+    if (g && sectionId === g) return "All";
+  }
+  return partShortLabel(sectionId);
+}
+
+function formatHms(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
+function groupTitle(g: IeltsGroup): string {
+  switch (g) {
+    case "listening":
+      return "Listening";
+    case "reading":
+      return "Reading";
+    case "writing":
+      return "Writing";
+    case "speaking":
+      return "Speaking";
+    default:
+      return g;
+  }
+}
+
 export default function IeltsAssignmentPage() {
   const params = useParams();
   const assignmentId = typeof params?.id === "string" ? params.id : "";
@@ -61,10 +115,10 @@ export default function IeltsAssignmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // IELTS-specific state
   const [currentSectionId, setCurrentSectionId] = useState<string>("");
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null); // seconds
-  const [timerActive, setTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(GROUP_TIME_SECONDS.listening);
+  const [timerPaused, setTimerPaused] = useState(false);
+  const lastGroupRef = useRef<IeltsGroup | null>(null);
 
   const answersById = useMemo(() => {
     return new Map((attempt?.answers ?? []).map((a) => [a.questionId, a.value]));
@@ -74,18 +128,40 @@ export default function IeltsAssignmentPage() {
   const sections = assignment?.exam.structure?.sections ?? [];
 
   const questionsBySection = useMemo(() => {
-    if (!isIelts || sections.length === 0) return { all: assignment?.exam.questions ?? [] };
+    if (!assignment) return {} as Record<string, ExamQuestion[]>;
     const grouped: Record<string, ExamQuestion[]> = {};
     for (const s of sections) grouped[s.id] = [];
-    for (const q of assignment?.exam.questions ?? []) {
-      const sid = q.sectionId ?? sections[0]?.id ?? "all";
+    const fallback = sections[0]?.id ?? "";
+    for (const q of assignment.exam.questions) {
+      const sid = q.sectionId ?? fallback;
       if (!grouped[sid]) grouped[sid] = [];
       grouped[sid].push(q);
     }
     return grouped;
-  }, [assignment, isIelts, sections]);
+  }, [assignment, sections]);
 
-  const currentQuestions = isIelts && currentSectionId ? questionsBySection[currentSectionId] ?? [] : assignment?.exam.questions ?? [];
+  const sectionByGroup = useMemo(() => {
+    const map = new Map<IeltsGroup, typeof sections>();
+    for (const g of GROUP_ORDER) {
+      const secs = sections.filter((s) => ieltsGroupForSectionId(s.id) === g);
+      if (secs.length) map.set(g, secs);
+    }
+    return map;
+  }, [sections]);
+
+  const orderedQuestions = useMemo(() => {
+    const out: { q: ExamQuestion; globalN: number; sectionId: string }[] = [];
+    let n = 0;
+    for (const s of sections) {
+      for (const q of questionsBySection[s.id] ?? []) {
+        n += 1;
+        out.push({ q, globalN: n, sectionId: s.id });
+      }
+    }
+    return out;
+  }, [sections, questionsBySection]);
+
+  const currentGroup = useMemo(() => ieltsGroupForSectionId(currentSectionId), [currentSectionId]);
 
   async function loadAll() {
     setError(null);
@@ -102,9 +178,14 @@ export default function IeltsAssignmentPage() {
     const attemptData = await api<{ attempt: Attempt }>(`/api/attempts/${started.attemptId}`);
     setAttempt(attemptData.attempt);
 
-    // Auto-select first section for IELTS
-    if (data.assignment.exam.program === "ielts" && data.assignment.exam.structure?.sections?.length) {
-      setCurrentSectionId(data.assignment.exam.structure.sections[0].id);
+    const secs = data.assignment.exam.structure?.sections ?? [];
+    if (secs.length) {
+      setCurrentSectionId(secs[0].id);
+      const g0 = ieltsGroupForSectionId(secs[0].id);
+      if (g0) {
+        lastGroupRef.current = g0;
+        setTimeLeft(GROUP_TIME_SECONDS[g0]);
+      }
     }
   }
 
@@ -114,23 +195,37 @@ export default function IeltsAssignmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId]);
 
-  // Timer logic
+  // Reset timer allocation when switching main skill (Listening → Reading, etc.)
   useEffect(() => {
-    if (!timerActive || timeRemaining === null || timeRemaining <= 0) return;
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => (prev && prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timerActive, timeRemaining]);
+    const g = currentGroup;
+    if (!g) return;
+    if (lastGroupRef.current !== g) {
+      lastGroupRef.current = g;
+      setTimeLeft(GROUP_TIME_SECONDS[g]);
+      setTimerPaused(false);
+    }
+  }, [currentGroup]);
 
-  function setAnswer(questionId: string, value: unknown) {
+  useEffect(() => {
+    if (timerPaused || attempt?.submittedAt) return;
+    if (timeLeft <= 0) return;
+    const t = setInterval(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [timerPaused, timeLeft, attempt?.submittedAt]);
+
+  const scrollToGlobal = useCallback((globalN: number) => {
+    const el = document.getElementById(`ielts-q-${globalN}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const setAnswer = useCallback((questionId: string, value: unknown) => {
     setAttempt((prev) => {
       if (!prev) return prev;
       const next = prev.answers.filter((a) => a.questionId !== questionId);
       next.push({ questionId, value });
       return { ...prev, answers: next };
     });
-  }
+  }, []);
 
   async function saveProgress() {
     if (!attemptId || !attempt) return;
@@ -163,7 +258,7 @@ export default function IeltsAssignmentPage() {
         body: JSON.stringify({ answers: attempt.answers, submit: true }),
       });
       setAttempt(data.attempt);
-      setTimerActive(false);
+      setTimerPaused(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit");
     } finally {
@@ -171,121 +266,108 @@ export default function IeltsAssignmentPage() {
     }
   }
 
-  const totalPoints = useMemo(() => {
-    return (assignment?.exam.questions ?? []).reduce((sum, q) => sum + q.points, 0);
-  }, [assignment]);
-
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
   if (!assignment || !attempt) {
     return (
       <RoleGuard allow={["student"]}>
-        <div className="flex min-h-screen items-center justify-center">
-          <p className="text-[var(--muted)]">Loading...</p>
-        </div>
+        <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">Loading…</div>
       </RoleGuard>
     );
   }
 
   if (!isIelts) {
-    // Redirect to standard assignment page for non-IELTS exams
     if (typeof window !== "undefined") {
       window.location.href = `/dashboard/assignments/${assignmentId}`;
     }
     return null;
   }
 
+  const submitted = Boolean(attempt.submittedAt);
+  const timerLabel = currentGroup ? `${groupTitle(currentGroup)} · ${formatHms(timeLeft)}` : formatHms(timeLeft);
+
   return (
     <RoleGuard allow={["student"]}>
-      <div className="flex min-h-screen flex-col bg-[var(--background)]">
-        {/* Top Bar */}
-        <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold text-[var(--text)]">{assignment.title}</h1>
-              <p className="text-xs text-[var(--muted)]">{assignment.exam.title}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Timer */}
-              {timeRemaining !== null ? (
-                <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5">
-                  <span className="text-xs font-semibold text-[var(--muted)]">Time:</span>
-                  <span className={`font-mono text-sm font-bold ${timeRemaining < 300 ? "text-red-500" : "text-[var(--text)]"}`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                  {!timerActive && timeRemaining > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setTimerActive(true)}
-                      className="ml-2 text-xs font-semibold text-[var(--accent)] hover:underline"
-                    >
-                      Start
-                    </button>
-                  ) : null}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTimeRemaining(7200); // 2 hours default
-                    setTimerActive(true);
-                  }}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
-                >
-                  Start Timer
-                </button>
-              )}
-
-              <button
-                type="button"
-                disabled={busy || Boolean(attempt.submittedAt)}
-                onClick={() => void saveProgress()}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] disabled:opacity-60"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={busy || Boolean(attempt.submittedAt)}
-                onClick={() => void submit()}
-                className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60"
-              >
-                Submit
-              </button>
-            </div>
+      <div className="flex h-dvh min-h-0 flex-col">
+        {/* Top strip */}
+        <header className="z-30 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+          <div className="min-w-0">
+            <Link
+              href="/dashboard/my-exams"
+              className="text-xs font-semibold text-[var(--accent)] hover:underline"
+            >
+              ← Exams
+            </Link>
+            <h1 className="mt-1 truncate text-base font-semibold text-[var(--text)] sm:text-lg">{assignment.title}</h1>
+            <p className="truncate text-xs text-[var(--muted)]">{assignment.exam.title}</p>
           </div>
-        </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={submitted}
+              onClick={() => setTimerPaused((p) => !p)}
+              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
+            >
+              {timerPaused ? "Resume timer" : "Pause timer"}
+            </button>
+            <button
+              type="button"
+              disabled={busy || submitted}
+              onClick={() => void saveProgress()}
+              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={busy || submitted}
+              onClick={() => void submit()}
+              className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            >
+              Submit
+            </button>
+          </div>
+        </header>
 
         {error ? (
-          <div className="mx-auto mt-4 w-full max-w-7xl px-4">
-            <p className="rounded-xl border border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-3 text-sm text-[var(--error-text)]">
-              {error}
-            </p>
+          <div className="shrink-0 border-b border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-2 text-sm text-[var(--error-text)]">
+            {error}
           </div>
         ) : null}
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto max-w-4xl space-y-4 pb-32">
-            {currentQuestions.map((q, idx) => {
+        {submitted ? (
+          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--accent-soft)] px-4 py-2 text-center text-xs font-semibold text-[var(--accent)]">
+            Submitted — you can review your answers below.
+          </div>
+        ) : null}
+
+        {/* Questions (global order); scroll above bottom bar */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[11rem] sm:pb-[9.5rem]">
+          <div className="mx-auto max-w-3xl space-y-6">
+            {orderedQuestions.length === 0 ? (
+              <p className="text-center text-sm text-[var(--muted)]">No questions in this exam.</p>
+            ) : null}
+            {orderedQuestions.map(({ q, globalN, sectionId }) => {
               const current = answersById.get(q.id);
+              const inSection = sectionId === currentSectionId;
               return (
-                <div key={q.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+                <div
+                  key={q.id}
+                  id={`ielts-q-${globalN}`}
+                  className={`scroll-mt-4 rounded-2xl border bg-[var(--surface)] p-5 shadow-sm ${
+                    inSection ? "border-[var(--accent)]/50 ring-1 ring-[var(--accent)]/20" : "border-[var(--border)]"
+                  }`}
+                >
                   <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                    Q{idx + 1} · {q.type} · {q.points} pts
+                    Question {globalN} · {q.type} · {q.points} pts
                   </p>
                   {q.description ? (
-                    <div className="mt-2 whitespace-pre-wrap text-xs font-medium italic text-[var(--muted)] border-l-2 border-[var(--border)] pl-2">
+                    <div className="mt-2 whitespace-pre-wrap border-l-2 border-[var(--border)] pl-2 text-xs font-medium italic text-[var(--muted)]">
                       {formatRichText(q.description)}
                     </div>
                   ) : null}
                   {q.type !== "rich_text" && "prompt" in q ? (
-                    <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{formatRichText(q.prompt)}</div>
+                    <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
+                      {formatRichText(q.prompt)}
+                    </div>
                   ) : null}
                   {q.type === "rich_text" && "content" in q ? (
                     <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
@@ -312,7 +394,7 @@ export default function IeltsAssignmentPage() {
                             name={`q_${q.id}`}
                             checked={Number(current) === i}
                             onChange={() => setAnswer(q.id, i)}
-                            disabled={Boolean(attempt.submittedAt)}
+                            disabled={submitted}
                           />
                           <span className="min-w-0 flex-1 text-sm text-[var(--text)]">
                             <span className="block">{choiceDisplayText(c)}</span>
@@ -335,7 +417,7 @@ export default function IeltsAssignmentPage() {
                       value={typeof current === "string" ? current : String(current ?? "")}
                       onChange={(e) => setAnswer(q.id, e.target.value)}
                       placeholder="Type your answer…"
-                      disabled={Boolean(attempt.submittedAt)}
+                      disabled={submitted}
                     />
                   ) : null}
 
@@ -346,7 +428,7 @@ export default function IeltsAssignmentPage() {
                       value={typeof current === "number" ? current : current ? Number(current) : ""}
                       onChange={(e) => setAnswer(q.id, e.target.value === "" ? "" : Number(e.target.value))}
                       placeholder="0"
-                      disabled={Boolean(attempt.submittedAt)}
+                      disabled={submitted}
                     />
                   ) : null}
 
@@ -356,8 +438,14 @@ export default function IeltsAssignmentPage() {
                       value={typeof current === "string" ? current : String(current ?? "")}
                       onChange={(e) => setAnswer(q.id, e.target.value)}
                       placeholder="Write your response…"
-                      disabled={Boolean(attempt.submittedAt)}
+                      disabled={submitted}
                     />
+                  ) : null}
+
+                  {q.type === "html_interactive" ? (
+                    <p className="mt-4 text-sm text-[var(--muted)]">
+                      HTML questions are not supported in this view yet. Use the standard assignment page if needed.
+                    </p>
                   ) : null}
                 </div>
               );
@@ -365,32 +453,97 @@ export default function IeltsAssignmentPage() {
           </div>
         </div>
 
-        {/* Bottom Section Bar */}
-        <div className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--surface)] shadow-lg">
-          <div className="mx-auto max-w-7xl overflow-x-auto px-4 py-3">
-            <div className="flex items-center gap-2">
-              {sections.map((s) => {
-                const count = questionsBySection[s.id]?.length ?? 0;
-                const answered = questionsBySection[s.id]?.filter((q) => answersById.has(q.id)).length ?? 0;
-                const isActive = currentSectionId === s.id;
+        {/* Bottom bar: sections | question # | timer */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+          <div className="mx-auto flex max-h-[42vh] w-full max-w-[100rem] flex-col gap-3 overflow-y-auto px-3 py-3 sm:max-h-none sm:flex-row sm:items-stretch sm:gap-4 sm:px-4">
+            {/* Left: skill rows + part pills */}
+            <div className="min-w-0 flex-1 space-y-2 border-[var(--border)] sm:border-r sm:pr-4">
+              {GROUP_ORDER.map((g) => {
+                const secs = sectionByGroup.get(g);
+                if (!secs?.length) return null;
                 return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setCurrentSectionId(s.id)}
-                    className={`flex shrink-0 flex-col items-center gap-1 rounded-lg border px-4 py-2 transition ${
-                      isActive
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
-                        : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
-                    }`}
-                  >
-                    <span className="text-xs font-semibold">{s.label}</span>
-                    <span className="text-[10px] opacity-75">
-                      {answered}/{count}
+                  <div key={g} className="flex flex-wrap items-center gap-1.5">
+                    <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--faint)] sm:text-xs">
+                      {groupTitle(g)}
                     </span>
-                  </button>
+                    <div className="flex flex-wrap gap-1">
+                      {secs.map((s) => {
+                        const active = s.id === currentSectionId;
+                        const count = questionsBySection[s.id]?.length ?? 0;
+                        const done = questionsBySection[s.id]?.filter((qq) => answersById.has(qq.id)).length ?? 0;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            title={s.label}
+                            onClick={() => {
+                              setCurrentSectionId(s.id);
+                              const first = orderedQuestions.find((o) => o.sectionId === s.id);
+                              if (first) scrollToGlobal(first.globalN);
+                            }}
+                            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition sm:text-xs ${
+                              active
+                                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
+                                : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
+                            }`}
+                          >
+                            {partButtonLabel(s.id, secs.length)}
+                            <span className="ml-1 opacity-70">({done}/{count})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
+            </div>
+
+            {/* Middle: question numbers */}
+            <div className="flex shrink-0 flex-col justify-center border-[var(--border)] sm:border-r sm:px-3">
+              <p className="mb-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-[var(--faint)]">
+                Questions
+              </p>
+              <div className="flex max-w-[min(100vw,28rem)] flex-wrap justify-center gap-1 sm:max-w-[20rem]">
+                {orderedQuestions.map(({ q, globalN, sectionId }) => {
+                  const answered = answersById.has(q.id);
+                  const activePart = sectionId === currentSectionId;
+                  return (
+                    <button
+                      key={globalN}
+                      type="button"
+                      onClick={() => {
+                        setCurrentSectionId(sectionId);
+                        scrollToGlobal(globalN);
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md border text-xs font-bold ${
+                        answered
+                          ? "border-emerald-600/40 bg-emerald-600/15 text-emerald-800 dark:text-emerald-200"
+                          : "border-[var(--border)] bg-[var(--background)] text-[var(--text)]"
+                      } ${activePart ? "ring-1 ring-[var(--accent)]/40" : ""}`}
+                    >
+                      {globalN}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right: timer */}
+            <div className="flex shrink-0 flex-col justify-center sm:w-52">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--faint)]">Timer</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Listening 30m · Reading 60m · Writing 60m · Speaking 30m
+              </p>
+              <p
+                className={`mt-2 font-mono text-2xl font-bold tabular-nums ${
+                  timeLeft > 0 && timeLeft < 300 ? "text-red-600" : "text-[var(--text)]"
+                }`}
+              >
+                {timerLabel}
+              </p>
+              {timeLeft === 0 && !submitted ? (
+                <p className="mt-1 text-[11px] font-semibold text-red-600">Time is up for this section.</p>
+              ) : null}
             </div>
           </div>
         </div>

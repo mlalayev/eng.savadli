@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { ProfileAside } from "./ProfileAside";
@@ -8,6 +8,9 @@ import { ProfileAside } from "./ProfileAside";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, ready } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  /** Full-screen exam UI (no sidebar). */
+  const examFocusLayout = Boolean(pathname?.startsWith("/dashboard/assignments/ielts/"));
 
   useEffect(() => {
     if (!ready) return;
@@ -27,6 +30,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 items-center justify-center py-24 text-sm text-[var(--muted)]">
         Redirecting…
       </div>
+    );
+  }
+
+  if (examFocusLayout) {
+    return (
+      <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">{children}</div>
     );
   }
 
