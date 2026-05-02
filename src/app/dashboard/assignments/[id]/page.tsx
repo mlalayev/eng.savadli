@@ -84,6 +84,13 @@ export default function AssignmentDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId]);
 
+  // Redirect IELTS exams to dedicated interface
+  useEffect(() => {
+    if (assignment && assignment.exam.program === "ielts" && typeof window !== "undefined") {
+      window.location.href = `/dashboard/assignments/ielts/${assignmentId}`;
+    }
+  }, [assignment, assignmentId]);
+
   function setAnswer(questionId: string, value: unknown) {
     setAttempt((prev) => {
       if (!prev) return prev;

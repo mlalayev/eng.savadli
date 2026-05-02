@@ -14,6 +14,8 @@ import {
   ieltsGroupLabel,
 } from "./shared/helpers";
 import { ExamHeader } from "./shared/ExamHeader";
+import { parseHtmlInputs, countHtmlQuestions } from "@/lib/exams/html-parser";
+import { HtmlPreview } from "./HtmlPreview";
 
 type IeltsExamEditorProps = {
   exam: Exam;
@@ -271,6 +273,23 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
         return;
       }
       q = { ...base, type: "rich_text", content: richTextContent.trim() };
+    } else if (newType === "html_interactive") {
+      if (!htmlContent.trim()) {
+        setError("HTML content is required.");
+        return;
+      }
+      if (htmlCorrectAnswers.length === 0) {
+        setError("Configure at least one correct answer for the HTML inputs.");
+        return;
+      }
+      q = {
+        ...base,
+        type: "html_interactive",
+        prompt: prompt.trim(),
+        htmlContent: htmlContent.trim(),
+        cssContent: cssContent.trim() || undefined,
+        correctAnswers: htmlCorrectAnswers,
+      };
     } else {
       q = { ...base, type: "writing", prompt: prompt.trim(), rubric: rubric.trim() || undefined };
     }
@@ -607,6 +626,250 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
         </div>
 
         <form className="mt-5 space-y-5" onSubmit={addQuestion}>
+          {/* Step 1: Question Type Selector */}
+          <div className="rounded-xl border-2 border-[var(--accent)]/30 bg-[var(--accent-soft)] p-5">
+            <p className="text-sm font-semibold text-[var(--accent)]">Step 1: Choose Question Type</p>
+            <select
+              className="mt-3 block h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as ExamQuestion["type"])}
+            >
+              {allowedTypes.map((t) => (
+                <option key={t} value={t}>
+                  {questionTypeLabel(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Step 2: Question Type Instructions & Form Fields */}
+          {newType === "mcq_single" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Multiple Choice Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Create a question with multiple answer choices. Students select one correct answer.
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Prompt
+                <textarea
+                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  required
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {newType === "short_text" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Short Answer Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Students type a short text answer. Graded automatically (case-insensitive exact match).
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Prompt
+                <textarea
+                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  required
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {newType === "numeric" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Numeric Answer Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Students enter a number. Graded automatically (exact numeric match).
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Prompt
+                <textarea
+                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  required
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {newType === "writing" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Writing Task Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Students write an essay or long-form response. Requires manual grading by teacher.
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Prompt
+                <textarea
+                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  required
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {newType === "rich_text" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Rich Text Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Display formatted text with **bold**, __italic__, ~underline~, ~~strikethrough~~, [title] markers. No student input required.
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Rich text content
+                <textarea
+                  className="mt-1.5 block min-h-48 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono"
+                  value={richTextContent}
+                  onChange={(e) => setRichTextContent(e.target.value)}
+                  placeholder="Use **text** for bold, __text__ for italic, ~text~ for underline, ~~text~~ for strikethrough, [title]text[title] for titles"
+                  required
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {newType === "html_interactive" ? (
+            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">HTML Interactive Instructions</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Create custom HTML with &lt;input type="text" name="q1"/&gt; or &lt;input type="radio" name="q2" value="a"/&gt;. Each unique name = 1 question.
+                </p>
+              </div>
+              
+              <label className="block text-sm font-medium text-[var(--text)]">
+                Prompt / Instructions
+                <textarea
+                  className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Instructions shown above the interactive HTML"
+                  required
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-[var(--text)]">
+                HTML Content
+                <textarea
+                  className="mt-1.5 block min-h-64 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
+                  value={htmlContent}
+                  onChange={(e) => setHtmlContent(e.target.value)}
+                  placeholder='<p>Question 1: <input type="text" name="q1"/></p>'
+                  required
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-[var(--text)]">
+                CSS Styling (optional)
+                <textarea
+                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
+                  value={cssContent}
+                  onChange={(e) => setCssContent(e.target.value)}
+                  placeholder="p { margin: 10px 0; }"
+                />
+              </label>
+
+              {/* HTML Preview */}
+              {htmlContent.trim() ? (
+                <HtmlPreview
+                  htmlContent={htmlContent}
+                  cssContent={cssContent}
+                  showQuestionCount={true}
+                  questionCount={countHtmlQuestions(htmlContent)}
+                />
+              ) : null}
+
+              {/* Configure Correct Answers */}
+              {(() => {
+                const detectedInputs = parseHtmlInputs(htmlContent);
+                if (detectedInputs.length === 0) return null;
+
+                return (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+                    <p className="text-sm font-semibold text-[var(--text)]">Configure Correct Answers</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Detected {detectedInputs.length} input{detectedInputs.length === 1 ? "" : "s"}. Set the correct answer for each.
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {detectedInputs.map((input) => {
+                        const existing = htmlCorrectAnswers.find((a) => a.name === input.name);
+                        return (
+                          <div key={input.name} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+                              {input.name} ({input.type})
+                            </p>
+                            {input.type === "text" ? (
+                              <input
+                                className="mt-2 block w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+                                type="text"
+                                value={existing?.value ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setHtmlCorrectAnswers((prev) => {
+                                    const next = prev.filter((a) => a.name !== input.name);
+                                    if (val.trim()) next.push({ name: input.name, value: val, type: "text" });
+                                    return next;
+                                  });
+                                }}
+                                placeholder="Correct answer"
+                              />
+                            ) : input.type === "radio" && input.radioValues ? (
+                              <div className="mt-2 space-y-1">
+                                {input.radioValues.map((v) => (
+                                  <label key={v} className="flex items-center gap-2 text-sm">
+                                    <input
+                                      type="radio"
+                                      name={`correct_${input.name}`}
+                                      checked={existing?.value === v}
+                                      onChange={() => {
+                                        setHtmlCorrectAnswers((prev) => {
+                                          const next = prev.filter((a) => a.name !== input.name);
+                                          next.push({ name: input.name, value: v, type: "radio" });
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                    <span className="text-[var(--text)]">{v}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs text-[var(--muted)]">
+                                Radio buttons detected but no value attributes found. Add value="..." to each option.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : null}
+
+          {/* Common fields for non-rich-text types */}
           {newType !== "rich_text" && newType !== "html_interactive" ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
               <label className="block text-sm font-medium text-[var(--text)]">
