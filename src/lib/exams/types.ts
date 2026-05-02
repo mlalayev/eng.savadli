@@ -73,6 +73,7 @@ export type ExamQuestion =
       prompt: string;
       promptImageUrl?: string;
       description?: string;
+      /** Correct answer(s). Multiple answers separated by | (e.g., "strict quarantine|quarantine") */
       correctAnswer: string;
       points: number;
       satSkill?: SatQuestionSkill;

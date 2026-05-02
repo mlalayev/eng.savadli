@@ -669,7 +669,7 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
               <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Short Answer Instructions</p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Students type a short text answer. Graded automatically (case-insensitive exact match).
+                  Students type a short text answer. Graded automatically (case-insensitive). Supports multiple correct answers separated by <span className="font-semibold text-[var(--text)]">|</span> (e.g., "strict quarantine|quarantine").
                 </p>
               </div>
               
@@ -1099,15 +1099,19 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
           {newType === "short_text" ? (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
               <label className="block text-sm font-medium text-[var(--text)]">
-                Correct answer
-                <span className="ml-2 text-xs font-semibold text-[var(--muted)]">(exact match, case-insensitive)</span>
+                Correct answer(s)
+                <span className="ml-2 text-xs font-semibold text-[var(--muted)]">(separate multiple answers with |)</span>
                 <input
                   className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
                   value={correctAnswer}
                   onChange={(e) => setCorrectAnswer(e.target.value)}
+                  placeholder="e.g., strict quarantine|quarantine"
                   required
                 />
               </label>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Tip: Add multiple acceptable answers separated by | (e.g., "answer 1|answer 2|answer 3"). Grading is case-insensitive.
+              </p>
             </div>
           ) : null}
 
@@ -1258,11 +1262,13 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
 
                   {editBuf.type === "short_text" ? (
                     <label className="text-sm font-medium text-[var(--text)]">
-                      Correct answer
+                      Correct answer(s)
+                      <span className="ml-2 text-xs text-[var(--muted)]">(separate with |)</span>
                       <input
                         className="mt-1 block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
                         value={editBuf.correctAnswer}
                         onChange={(e) => setEditBuf({ ...editBuf, correctAnswer: e.target.value })}
+                        placeholder="e.g., answer1|answer2"
                       />
                     </label>
                   ) : null}

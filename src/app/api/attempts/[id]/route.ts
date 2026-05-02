@@ -64,7 +64,10 @@ function grade(exam: DbExam, answers: AttemptAnswer[]) {
       continue;
     }
     if (q.type === "short_text") {
-      const earned = normalizeText(value) === normalizeText(q.correctAnswer) ? q.points : 0;
+      // Support multiple correct answers separated by |
+      const correctAnswers = q.correctAnswer.split("|").map((ans) => normalizeText(ans));
+      const studentAnswer = normalizeText(value);
+      const earned = correctAnswers.includes(studentAnswer) ? q.points : 0;
       autoScore += earned;
       breakdown.push({ questionId: q.id, points: q.points, earned, auto: true });
       continue;
