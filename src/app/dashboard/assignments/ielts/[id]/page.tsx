@@ -75,8 +75,11 @@ function partShortLabel(sectionId: string): string {
   return sectionId;
 }
 
+const LEGACY_SINGLE_SECTION_ID = "__ielts_all__";
+
 /** Drill mode uses a single section id per skill (e.g. `listening`). */
 function partButtonLabel(sectionId: string, partsInGroup: number): string {
+  if (sectionId === LEGACY_SINGLE_SECTION_ID) return "All";
   if (partsInGroup === 1) {
     const g = ieltsGroupForSectionId(sectionId);
     if (g && sectionId === g) return "All";
@@ -125,12 +128,26 @@ export default function IeltsAssignmentPage() {
   }, [attempt]);
 
   const isIelts = assignment?.exam.program === "ielts";
-  const sections = assignment?.exam.structure?.sections ?? [];
+
+  /** API must send `exam.structure`; if missing (old data), one synthetic section lists every question. */
+  const sections = useMemo(() => {
+    if (!assignment) return [];
+    const fromStructure = assignment.exam.structure?.sections;
+    if (fromStructure && fromStructure.length > 0) return fromStructure;
+    if ((assignment.exam.questions ?? []).length > 0) {
+      return [{ id: LEGACY_SINGLE_SECTION_ID, label: "All questions", kind: "ielts_reading" }];
+    }
+    return [];
+  }, [assignment]);
 
   const questionsBySection = useMemo(() => {
     if (!assignment) return {} as Record<string, ExamQuestion[]>;
     const grouped: Record<string, ExamQuestion[]> = {};
     for (const s of sections) grouped[s.id] = [];
+    if (sections.length === 1 && sections[0].id === LEGACY_SINGLE_SECTION_ID) {
+      grouped[LEGACY_SINGLE_SECTION_ID] = [...assignment.exam.questions];
+      return grouped;
+    }
     const fallback = sections[0]?.id ?? "";
     for (const q of assignment.exam.questions) {
       const sid = q.sectionId ?? fallback;
@@ -142,6 +159,10 @@ export default function IeltsAssignmentPage() {
 
   const sectionByGroup = useMemo(() => {
     const map = new Map<IeltsGroup, typeof sections>();
+    if (sections.length === 1 && sections[0].id === LEGACY_SINGLE_SECTION_ID) {
+      map.set("reading", sections);
+      return map;
+    }
     for (const g of GROUP_ORDER) {
       const secs = sections.filter((s) => ieltsGroupForSectionId(s.id) === g);
       if (secs.length) map.set(g, secs);
@@ -161,7 +182,10 @@ export default function IeltsAssignmentPage() {
     return out;
   }, [sections, questionsBySection]);
 
-  const currentGroup = useMemo(() => ieltsGroupForSectionId(currentSectionId), [currentSectionId]);
+  const currentGroup = useMemo((): IeltsGroup | null => {
+    if (currentSectionId === LEGACY_SINGLE_SECTION_ID) return "reading";
+    return ieltsGroupForSectionId(currentSectionId);
+  }, [currentSectionId]);
 
   async function loadAll() {
     setError(null);
@@ -186,6 +210,10 @@ export default function IeltsAssignmentPage() {
         lastGroupRef.current = g0;
         setTimeLeft(GROUP_TIME_SECONDS[g0]);
       }
+    } else if ((data.assignment.exam.questions ?? []).length > 0) {
+      setCurrentSectionId(LEGACY_SINGLE_SECTION_ID);
+      lastGroupRef.current = "reading";
+      setTimeLeft(GROUP_TIME_SECONDS.reading);
     }
   }
 
@@ -205,6 +233,12 @@ export default function IeltsAssignmentPage() {
       setTimerPaused(false);
     }
   }, [currentGroup]);
+
+  const timerHeading = useMemo(() => {
+    if (currentSectionId === LEGACY_SINGLE_SECTION_ID) return "Exam";
+    if (currentGroup) return groupTitle(currentGroup);
+    return "Timer";
+  }, [currentSectionId, currentGroup]);
 
   useEffect(() => {
     if (timerPaused || attempt?.submittedAt) return;
@@ -282,7 +316,7 @@ export default function IeltsAssignmentPage() {
   }
 
   const submitted = Boolean(attempt.submittedAt);
-  const timerLabel = currentGroup ? `${groupTitle(currentGroup)} · ${formatHms(timeLeft)}` : formatHms(timeLeft);
+  const timerLabel = `${timerHeading} · ${formatHms(timeLeft)}`;
 
   return (
     <RoleGuard allow={["student"]}>

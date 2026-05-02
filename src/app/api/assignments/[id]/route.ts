@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongodb";
 import { requireUser } from "@/lib/api/authz";
-import type { ExamQuestion } from "@/lib/exams/types";
+import type { ExamQuestion, ExamStructure } from "@/lib/exams/types";
 
 type DbAssignment = {
   _id: ObjectId;
@@ -21,6 +21,7 @@ type DbExam = {
   active?: boolean;
   deletedAt?: Date | null;
   questions: ExamQuestion[];
+  structure?: ExamStructure;
 };
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -57,6 +58,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         program: exam.program,
         mode: exam.mode,
         questions: exam.questions,
+        structure: exam.structure,
       },
     },
   });
