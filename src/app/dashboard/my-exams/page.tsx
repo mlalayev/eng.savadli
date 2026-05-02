@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
 
 type AssignmentRow = {
@@ -34,31 +34,31 @@ async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export default function AssignmentsPage() {
+export default function MyExamsPage() {
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setError(null);
     const data = await api<{ assignments: AssignmentRow[] }>("/api/assignments");
     setRows(data.assignments);
-  }
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
       void refresh().catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
     });
-  }, []);
+  }, [refresh]);
 
   return (
     <RoleGuard allow={["student"]}>
       <div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">Assignments</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">Exams</h1>
             <p className="mt-2 text-[var(--muted)]">
-              Your assigned exams (same list as under <span className="font-semibold text-[var(--text)]">Exams</span> in the
-              sidebar).
+              Exams your teacher or admin assigned to you. Open one to start or continue. The full list also appears
+              under <span className="font-semibold text-[var(--text)]">Assignments</span>.
             </p>
           </div>
           <button
@@ -78,10 +78,7 @@ export default function AssignmentsPage() {
 
         <div className="mt-8 space-y-3">
           {rows.map((a) => (
-            <div
-              key={a.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm"
-            >
+            <div key={a.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="truncate text-lg font-semibold text-[var(--text)]">{a.title}</h2>
@@ -97,17 +94,25 @@ export default function AssignmentsPage() {
                   href={`/dashboard/assignments/${a.id}`}
                   className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]"
                 >
-                  Open
+                  Open exam
                 </Link>
               </div>
             </div>
           ))}
           {rows.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">
-              No assignments yet.
+              <p>No assigned exams yet.</p>
+              <p className="mt-2 text-xs">
+                When a teacher or admin assigns an exam to your account, it will show up here after you click Refresh or
+                reload the page.
+              </p>
             </div>
           ) : null}
         </div>
+
+        <p className="mt-8 text-xs text-[var(--faint)]">
+          Tip: IELTS exams open in a dedicated layout with section navigation at the bottom.
+        </p>
       </div>
     </RoleGuard>
   );

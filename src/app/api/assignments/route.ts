@@ -37,10 +37,15 @@ export async function GET() {
   if (!guard.ok) return guard.response;
 
   const db = await getDb();
-  const q =
-    guard.user.role === "student"
-      ? { studentIds: guard.user.id }
-      : {};
+
+  let q: Record<string, unknown> = {};
+  if (guard.user.role === "student") {
+    const sid = guard.user.id?.trim();
+    if (!sid) {
+      return Response.json({ error: "Invalid session" }, { status: 401 });
+    }
+    q = { studentIds: sid };
+  }
 
   const assignments = await db
     .collection<DbAssignment>("assignments")

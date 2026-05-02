@@ -1,0 +1,171 @@
+================================================================================
+SAVADLI / DSAT PLATFORM — HOW TO USE (TEACHERS & STUDENTS)
+================================================================================
+Last updated for: IELTS editor, exam questions, assignments, short answers,
+HTML interactive questions, and IELTS-style assignment screen.
+
+--------------------------------------------------------------------------------
+1. ADDING EXAM QUESTIONS (TEACHER — DASHBOARD → EXAMS → EDIT EXAM)
+--------------------------------------------------------------------------------
+
+Step 1 — Choose question type first
+  - Open the exam editor for your program (IELTS, DSAT, or General English).
+  - In "Add question", pick the type from the dropdown FIRST.
+  - Only after you choose a type will the rest of the form and instructions appear.
+
+Question types (summary)
+  - Multiple choice: several options; mark which one is correct.
+  - Short answer: one text box; auto-graded (see section 2 for multiple correct answers).
+  - Numeric: student enters a number; exact match for auto-grade.
+  - Written response: long text; teacher grades manually.
+  - Rich text (formatted content): display-only block with formatting (no student input).
+  - HTML interactive: you write HTML (+ optional CSS); students answer in embedded inputs.
+
+Common fields (where shown)
+  - Prompt: the main question text (for types that use a prompt).
+  - Description / context: optional extra instructions (IELTS-style stems).
+  - Points: how many points the question is worth.
+  - Question image: optional image for the stem.
+
+--------------------------------------------------------------------------------
+2. SHORT ANSWER — MULTIPLE ACCEPTABLE ANSWERS (PIPE | )
+--------------------------------------------------------------------------------
+
+When creating or editing a Short answer question, put ALL acceptable answers in ONE
+field, separated by the pipe character | (vertical bar).
+
+Example (teacher sets correct answer field to):
+  strict quarantine|quarantine|quarantine measures
+
+Rules
+  - Grading is case-insensitive.
+  - Extra spaces are normalized (trimmed; repeated spaces collapsed).
+  - If the student's answer matches ANY of the pipe-separated values, they get full points.
+
+Examples that would be marked correct (for the line above):
+  - strict quarantine
+  - QUARANTINE
+  - quarantine measures
+
+Wrong examples:
+  - quarantines        (not in the list)
+  - strict             (partial match does not count — whole normalized string must match one option)
+
+Tip: keep each option as you want it compared after normalization (no need to duplicate
+different capitalizations).
+
+
+--------------------------------------------------------------------------------
+3. RICH TEXT & DESCRIPTIONS — SIMPLE MARKUP (READING / MATERIALS / STEMS)
+--------------------------------------------------------------------------------
+
+Where it applies
+  - Question descriptions and prompts (where the UI shows "Formatting help").
+  - IELTS section materials (passage / script / prompts) in the exam editor.
+
+You type in the editor; students see formatted output.
+
+Markers
+  - New line: press Enter (normal line breaks; blank line = extra space).
+  - Bold:       **like this**
+  - Italic:     __like this__   (also *like this* still works in many places)
+  - Underline:  ~like this~    (also _like this_ still works in many places)
+  - Strike:     ~~like this~~
+  - Title line: [title] Your title here [title]
+
+
+--------------------------------------------------------------------------------
+4. HTML INTERACTIVE QUESTIONS (TEACHER)
+--------------------------------------------------------------------------------
+
+What it is
+  - You write HTML (and optional CSS). The live preview shows how it will look.
+  - Only simple inputs are supported for auto-detection and grading setup:
+    * <input type="text" name="..."/>
+    * <input type="radio" name="..." value="..."/>
+
+How "question count" works
+  - Each UNIQUE `name` on an input counts as ONE sub-question.
+  Example:
+    <input type="text" name="q1"/>
+    <input type="radio" name="q2" value="a"/>
+    <input type="radio" name="q2" value="b"/>
+  → That is 2 questions (q1 and q2), because q2 is one radio group.
+
+Text inputs — correct answers
+  - After you paste HTML, the form lists each detected `name`.
+  - Type the correct answer for each text field.
+
+Radio groups — correct answers
+  - Each radio must have a `value="..."` attribute.
+  - Pick which value is correct in the "Configure correct answers" section.
+  - If radios have no `value`, the UI will warn you to add values.
+
+Saving
+  - Fill prompt, HTML, configure all required correct answers, set points, then add the question.
+  - Remember: Save exam (or your editor's save action) persists questions to the server.
+
+
+--------------------------------------------------------------------------------
+5. TAKING AN ASSIGNMENT (STUDENT)
+--------------------------------------------------------------------------------
+
+Where assigned exams appear
+  - Dashboard → Exams (/dashboard/my-exams) lists the same assigned exams as Assignments.
+  - Dashboard → Assignments also lists them; either place lets you open the attempt.
+
+General (non-IELTS or simple flow)
+  - Dashboard → Assignments → open assignment.
+  - Answer questions, use Save anytime, Submit when finished.
+
+IELTS assignments (full exam-style screen)
+  - When you open an IELTS assignment, you may be sent to a dedicated IELTS screen:
+      /dashboard/assignments/ielts/[assignmentId]
+  - Top: assignment title, optional timer (Start timer / countdown), Save, Submit.
+  - Main area: questions for the section you selected.
+  - Bottom bar: Listening / Reading / Writing / Speaking (subsections from the exam).
+    Each pill can show progress like "answered / total" for that section.
+  - Switch sections from the bottom bar to work through the paper in order.
+
+Timer (IELTS screen)
+  - Use "Start timer" if shown; countdown runs while you work.
+  - Submit still requires your confirmation; saving does not submit.
+
+
+--------------------------------------------------------------------------------
+6. TEACHERS — GRADEBOOK & MANUAL MARKS
+--------------------------------------------------------------------------------
+
+  - Short answer and numeric questions are auto-scored on submit (short answer supports |).
+  - Written responses and rich-text blocks that need human judgment appear in manual grading flows.
+  - Open Gradebook → pick attempt → enter earned points / feedback where provided.
+
+
+--------------------------------------------------------------------------------
+7. PRODUCTION UPLOADS (413 REQUEST ENTITY TOO LARGE) — VPS + NGINX
+--------------------------------------------------------------------------------
+
+If large audio/image uploads fail with HTTP 413 in production on a VPS behind Nginx:
+
+  - In Nginx (e.g. http { } or server { }), set:
+      client_max_body_size 150m;
+  - Reload:  nginx -t  &&  systemctl reload nginx
+  - If Cloudflare or another CDN sits in front, check their upload limits too.
+
+This is server configuration, not the app's .env file.
+
+
+--------------------------------------------------------------------------------
+8. QUICK CHECKLIST BEFORE GOING LIVE
+--------------------------------------------------------------------------------
+
+  [ ] Exam questions saved after editing.
+  [ ] Short answers: use | for multiple acceptable spellings/phrases.
+  [ ] HTML interactive: every radio has value="..."; correct answers configured.
+  [ ] IELTS: materials saved per subsection; listening audio URL set if needed.
+  [ ] Nginx body size large enough for your biggest upload.
+
+
+================================================================================
+END OF FILE
+================================================================================

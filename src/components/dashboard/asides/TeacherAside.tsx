@@ -7,6 +7,7 @@ import { NavItems } from "../NavItems";
 const items = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/exams", label: "Exams" },
+  { href: "/dashboard/assign-exams", label: "Assign exams" },
   { href: "/dashboard/gradebook", label: "Gradebook" },
   { href: "/dashboard/manage-lessons", label: "Manage lessons" },
   { href: "/dashboard/classes", label: "My classes" },

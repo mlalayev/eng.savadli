@@ -175,11 +175,13 @@ export default function AssignExamsPage() {
   }
 
   return (
-    <RoleGuard allow={["creator", "admin"]}>
+    <RoleGuard allow={["creator", "admin", "teacher"]}>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">Assign exams</h1>
         <p className="mt-2 text-[var(--muted)]">
-          Search students and assign an exam in one click. Students will see it in their Assignments.
+          Search students and assign an exam in one click. Students will see it under{" "}
+          <span className="font-semibold text-[var(--text)]">Exams</span> and{" "}
+          <span className="font-semibold text-[var(--text)]">Assignments</span> on their dashboard.
         </p>
 
         {error ? (

@@ -47,7 +47,8 @@ const trackItems: readonly NavItem[] = [
 ];
 
 const studyItems: readonly NavItem[] = [
-  { href: "/dashboard/exams-extras", label: "Exams & extras" },
+  { href: "/dashboard/my-exams", label: "Exams" },
+  { href: "/dashboard/extras", label: "Extras" },
   { href: "/dashboard/lessons", label: "Lessons" },
   { href: "/dashboard/assignments", label: "Assignments" },
   { href: "/dashboard/homework", label: "Homework" },
