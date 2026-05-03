@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ListeningAudioPanel } from "@/components/dashboard/ListeningAudioPanel";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
 import { HtmlInteractiveRunner, parseHtmlInteractiveStored } from "@/components/exams/HtmlInteractiveRunner";
 import { formatRichText, ieltsGroupForSectionId } from "@/components/exams/shared/helpers";
@@ -111,6 +112,8 @@ function groupTitle(g: IeltsGroup): string {
   }
 }
 
+type QuestionAppearance = "default" | "listening";
+
 type IeltsPartQuestionsProps = {
   questions: ExamQuestion[];
   sectionId: string;
@@ -118,6 +121,7 @@ type IeltsPartQuestionsProps = {
   attemptAnswers: Array<{ questionId: string; value: unknown }>;
   setAnswer: (questionId: string, value: unknown) => void;
   submitted: boolean;
+  appearance?: QuestionAppearance;
 };
 
 function IeltsPartQuestions({
@@ -127,6 +131,7 @@ function IeltsPartQuestions({
   attemptAnswers,
   setAnswer,
   submitted,
+  appearance = "default",
 }: IeltsPartQuestionsProps) {
   if (questions.length === 0) {
     return <p className="text-center text-sm text-[var(--muted)]">No questions in this part.</p>;
@@ -143,6 +148,7 @@ function IeltsPartQuestions({
           attemptAnswers={attemptAnswers}
           setAnswer={setAnswer}
           submitted={submitted}
+          appearance={appearance}
         />
       ))}
     </>
@@ -157,6 +163,7 @@ function IeltsQuestionCard({
   attemptAnswers,
   setAnswer,
   submitted,
+  appearance = "default",
 }: {
   q: ExamQuestion;
   sectionId: string;
@@ -165,6 +172,7 @@ function IeltsQuestionCard({
   attemptAnswers: Array<{ questionId: string; value: unknown }>;
   setAnswer: (questionId: string, value: unknown) => void;
   submitted: boolean;
+  appearance?: QuestionAppearance;
 }) {
   const current = answersById.get(q.id);
   const htmlStoredJson = useMemo(() => {
@@ -172,13 +180,35 @@ function IeltsQuestionCard({
     return JSON.stringify(parseHtmlInteractiveStored(raw));
   }, [attemptAnswers, q.id]);
 
+  const cardShell =
+    appearance === "listening"
+      ? "scroll-mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--shadow-ring)]"
+      : "scroll-mt-4 rounded-2xl border border-[var(--accent)]/40 bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--accent)]/15";
+
+  const choiceRow =
+    appearance === "listening"
+      ? "flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3.5 transition hover:border-[var(--accent)]/35 hover:bg-[var(--hover)] has-[:checked]:border-[var(--accent)]/50 has-[:checked]:bg-[var(--accent-soft)]"
+      : "flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3";
+
   return (
-    <div
-      id={`ielts-q-${sectionId}-${localN}`}
-      className="scroll-mt-4 rounded-2xl border border-[var(--accent)]/40 bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--accent)]/15"
-    >
-      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-        Question {localN} · {q.type} · {q.points} pts
+    <div id={`ielts-q-${sectionId}-${localN}`} className={cardShell}>
+      <p
+        className={
+          appearance === "listening"
+            ? "text-xs font-semibold uppercase tracking-wider text-[var(--accent)]"
+            : "text-xs font-semibold uppercase tracking-wider text-[var(--faint)]"
+        }
+      >
+        {appearance === "listening" ? (
+          <>
+            Question <span className="text-[var(--text)]">{localN}</span>
+            <span className="font-normal text-[var(--faint)]"> · {q.points} pts</span>
+          </>
+        ) : (
+          <>
+            Question {localN} · {q.type} · {q.points} pts
+          </>
+        )}
       </p>
       {q.description ? (
         <div className="mt-2 whitespace-pre-wrap border-l-2 border-[var(--border)] pl-2 text-xs font-medium italic text-[var(--muted)]">
@@ -202,10 +232,7 @@ function IeltsQuestionCard({
       {q.type === "mcq_single" ? (
         <div className="mt-4 space-y-2">
           {normalizeExamChoices(q.choices as unknown).map((c, i) => (
-            <label
-              key={c.id}
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"
-            >
+            <label key={c.id} className={choiceRow}>
               <input
                 type="radio"
                 name={`q_${q.id}`}
@@ -230,7 +257,9 @@ function IeltsQuestionCard({
 
       {q.type === "short_text" ? (
         <input
-          className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          className={`mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm ${
+            appearance === "listening" ? "focus:border-[var(--accent)]/40 focus:ring-2 focus:ring-[var(--accent)]/15" : ""
+          }`}
           value={typeof current === "string" ? current : String(current ?? "")}
           onChange={(e) => setAnswer(q.id, e.target.value)}
           placeholder="Type your answer…"
@@ -340,6 +369,8 @@ export default function IeltsAssignmentPage() {
   }, [assignment]);
 
   const listeningAudioUrl = ieltsMaterials[IELTS_LISTENING_AUDIO_KEY]?.audioUrl?.trim() ?? "";
+
+  const currentSectionLabel = sections.find((s) => s.id === currentSectionId)?.label?.trim() ?? "";
 
   const currentSectionQuestions = useMemo(
     () => questionsBySection[currentSectionId] ?? [],
@@ -540,36 +571,56 @@ export default function IeltsAssignmentPage() {
         ) : null}
 
         {/* Current part only; listening uses split layout (audio | questions) */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[11rem] sm:pb-[9.5rem]">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-[11rem] sm:px-6 sm:pb-[9.5rem]">
           {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
-            <div className="mx-auto flex max-w-6xl flex-col gap-6 lg:flex-row lg:items-start">
-              <aside className="shrink-0 space-y-4 lg:sticky lg:top-4 lg:w-[min(100%,22rem)]">
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Listening audio</p>
-                  {listeningAudioUrl ? (
-                    <audio key={listeningAudioUrl} controls className="mt-3 w-full" src={listeningAudioUrl} preload="metadata" />
-                  ) : (
-                    <p className="mt-2 text-sm text-[var(--muted)]">No audio URL set for this exam.</p>
-                  )}
-                </div>
+            <div className="mx-auto grid max-w-[110rem] gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
+              <aside className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-4 lg:self-start">
+                <ListeningAudioPanel src={listeningAudioUrl} subtitle={currentSectionLabel || undefined} />
                 {currentSectionMaterialText ? (
-                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Script / notes</p>
-                    <div className="mt-2 max-h-[50vh] overflow-y-auto whitespace-pre-wrap text-sm text-[var(--text)]">
-                      {formatRichText(currentSectionMaterialText)}
+                  <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+                    <div
+                      className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-[var(--accent-soft)]/60 blur-2xl"
+                      aria-hidden
+                    />
+                    <div className="relative border-b border-[var(--border)] px-5 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Materials</p>
+                      <h3 className="mt-1 text-sm font-semibold text-[var(--text)]">Script and directions</h3>
+                    </div>
+                    <div className="relative max-h-[min(50vh,28rem)] overflow-y-auto px-5 py-4">
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">
+                        {formatRichText(currentSectionMaterialText)}
+                      </div>
                     </div>
                   </div>
                 ) : null}
               </aside>
-              <div className="min-w-0 flex-1 space-y-6">
-                <IeltsPartQuestions
-                  questions={currentSectionQuestions}
-                  sectionId={currentSectionId}
-                  answersById={answersById}
-                  attemptAnswers={attempt.answers}
-                  setAnswer={setAnswer}
-                  submitted={submitted}
-                />
+              <div className="min-w-0">
+                <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+                  <div
+                    className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl"
+                    aria-hidden
+                  />
+                  <div className="relative border-b border-[var(--border)] px-5 py-4 sm:px-6 sm:py-5">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Your answers</p>
+                    <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 className="text-lg font-semibold tracking-tight text-[var(--text)] sm:text-xl">Questions</h2>
+                      {currentSectionLabel ? (
+                        <span className="text-sm text-[var(--muted)]">{currentSectionLabel}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="relative space-y-5 px-5 py-5 sm:space-y-6 sm:px-6 sm:pb-7">
+                    <IeltsPartQuestions
+                      questions={currentSectionQuestions}
+                      sectionId={currentSectionId}
+                      answersById={answersById}
+                      attemptAnswers={attempt.answers}
+                      setAnswer={setAnswer}
+                      submitted={submitted}
+                      appearance="listening"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
