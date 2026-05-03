@@ -170,7 +170,7 @@ export function HtmlInteractiveRunner({
         id={iframeId}
         title={`HTML question ${questionId}`}
         sandbox="allow-same-origin"
-        className="block h-full min-h-[calc(100dvh-7rem)] w-full min-w-0 flex-1 border-0 lg:min-h-0"
+        className="block h-full min-h-[min(55vh,28rem)] w-full min-w-0 flex-1 border-0 lg:min-h-0"
         style={{ border: "none" }}
       />
     );

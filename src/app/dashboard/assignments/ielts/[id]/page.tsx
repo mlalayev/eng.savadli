@@ -629,6 +629,7 @@ export default function IeltsAssignmentPage() {
   }
 
   const submitted = Boolean(attempt.submittedAt);
+  const listeningSplitLayout = currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID;
 
   return (
     <RoleGuard allow={["student"]}>
@@ -645,11 +646,17 @@ export default function IeltsAssignmentPage() {
           </div>
         ) : null}
 
-        {/* Current part only; listening uses split layout (audio | questions) */}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-28 sm:px-6 sm:pb-28">
-          {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
-            <div className="mx-auto grid max-w-[110rem] gap-6 lg:min-h-[calc(100dvh-7.5rem)] lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-stretch lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
-              <aside className="flex min-h-0 flex-col gap-5 self-start lg:sticky lg:top-4">
+        {/* Listening split: flex-fill + no outer scroll gap; other modes: scroll + dock padding */}
+        <div
+          className={`min-h-0 flex-1 bg-[var(--background)] px-4 sm:px-6 ${
+            listeningSplitLayout
+              ? "flex min-h-0 flex-col overflow-hidden pb-14 pt-4"
+              : "overflow-y-auto py-5 pb-28 sm:pb-28"
+          }`}
+        >
+          {listeningSplitLayout ? (
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[110rem] flex-1 flex-col gap-6 lg:grid lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-stretch lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
+              <aside className="flex min-h-0 shrink-0 flex-col gap-5 lg:sticky lg:top-4 lg:self-start">
                 <ListeningAudioPanel src={listeningAudioUrl} subtitle={currentSectionLabel || undefined} />
                 {currentSectionMaterialText ? (
                   <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
@@ -669,7 +676,7 @@ export default function IeltsAssignmentPage() {
                   </div>
                 ) : null}
               </aside>
-              <div className="flex min-h-0 min-w-0 flex-col lg:h-full lg:min-h-0">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-0 lg:h-full">
                 <ListeningSectionRight
                   questions={currentSectionQuestions}
                   sectionId={currentSectionId}
