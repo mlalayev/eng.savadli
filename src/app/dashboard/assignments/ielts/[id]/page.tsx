@@ -518,46 +518,6 @@ export default function IeltsAssignmentPage() {
   return (
     <RoleGuard allow={["student"]}>
       <div className="flex h-dvh min-h-0 flex-col">
-        {/* Top strip */}
-        <header className="z-30 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-          <div className="min-w-0">
-            <Link
-              href="/dashboard/my-exams"
-              className="text-xs font-semibold text-[var(--accent)] hover:underline"
-            >
-              ← Exams
-            </Link>
-            <h1 className="mt-1 truncate text-base font-semibold text-[var(--text)] sm:text-lg">{assignment.title}</h1>
-            <p className="truncate text-xs text-[var(--muted)]">{assignment.exam.title}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={submitted}
-              onClick={() => setTimerPaused((p) => !p)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
-            >
-              {timerPaused ? "Resume timer" : "Pause timer"}
-            </button>
-            <button
-              type="button"
-              disabled={busy || submitted}
-              onClick={() => void saveProgress()}
-              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] disabled:opacity-50"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              disabled={busy || submitted}
-              onClick={() => void submit()}
-              className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-            >
-              Submit
-            </button>
-          </div>
-        </header>
-
         {error ? (
           <div className="shrink-0 border-b border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-2 text-sm text-[var(--error-text)]">
             {error}
@@ -571,7 +531,7 @@ export default function IeltsAssignmentPage() {
         ) : null}
 
         {/* Current part only; listening uses split layout (audio | questions) */}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-[11rem] sm:px-6 sm:pb-[9.5rem]">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-[13.5rem] sm:px-6 sm:pb-[11.5rem]">
           {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
             <div className="mx-auto grid max-w-[110rem] gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
               <aside className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-4 lg:self-start">
@@ -637,8 +597,39 @@ export default function IeltsAssignmentPage() {
           )}
         </div>
 
-        {/* Bottom bar: sections | question # | timer */}
+        {/* Bottom bar: back + actions, then sections | question # | timer */}
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+          <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-3 py-2 sm:px-4">
+            <Link href="/dashboard/my-exams" className="text-xs font-semibold text-[var(--accent)] hover:underline">
+              ← Exams
+            </Link>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => setTimerPaused((p) => !p)}
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
+              >
+                {timerPaused ? "Resume timer" : "Pause timer"}
+              </button>
+              <button
+                type="button"
+                disabled={busy || submitted}
+                onClick={() => void saveProgress()}
+                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy || submitted}
+                onClick={() => void submit()}
+                className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
           <div className="mx-auto flex max-h-[42vh] w-full max-w-[100rem] flex-col gap-3 overflow-y-auto px-3 py-3 sm:max-h-none sm:flex-row sm:items-stretch sm:gap-4 sm:px-4">
             {/* Left: skill rows + part pills */}
             <div className="min-w-0 flex-1 space-y-2 border-[var(--border)] sm:border-r sm:pr-4">
