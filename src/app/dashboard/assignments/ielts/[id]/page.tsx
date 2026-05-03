@@ -320,6 +320,103 @@ function IeltsQuestionCard({
   );
 }
 
+/** Listening: one wrapper div + bare iframe(s) only (no question chrome). */
+function ListeningHtmlIframeItem({
+  q,
+  sectionId,
+  localN,
+  attemptAnswers,
+  setAnswer,
+  submitted,
+}: {
+  q: ExamQuestion & { type: "html_interactive" };
+  sectionId: string;
+  localN: number;
+  attemptAnswers: Attempt["answers"];
+  setAnswer: (questionId: string, value: unknown) => void;
+  submitted: boolean;
+}) {
+  const htmlStoredJson = useMemo(() => {
+    const raw = attemptAnswers.find((a) => a.questionId === q.id)?.value;
+    return JSON.stringify(parseHtmlInteractiveStored(raw));
+  }, [attemptAnswers, q.id]);
+
+  return (
+    <HtmlInteractiveRunner
+      questionId={q.id}
+      htmlContent={q.htmlContent}
+      cssContent={q.cssContent}
+      disabled={submitted}
+      storedAnswersJson={htmlStoredJson}
+      onValuesChange={(answers) => setAnswer(q.id, answers)}
+      bare
+      iframeId={`ielts-q-${sectionId}-${localN}`}
+    />
+  );
+}
+
+function ListeningSectionRight({
+  questions,
+  sectionId,
+  answersById,
+  attemptAnswers,
+  setAnswer,
+  submitted,
+}: {
+  questions: ExamQuestion[];
+  sectionId: string;
+  answersById: Map<string, unknown>;
+  attemptAnswers: Attempt["answers"];
+  setAnswer: (questionId: string, value: unknown) => void;
+  submitted: boolean;
+}) {
+  const allHtmlInteractive =
+    questions.length > 0 && questions.every((q) => q.type === "html_interactive");
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-0 w-full min-w-0">
+        <p className="text-center text-sm text-[var(--muted)]">No questions in this part.</p>
+      </div>
+    );
+  }
+
+  if (!allHtmlInteractive) {
+    return (
+      <div className="min-h-0 w-full min-w-0 space-y-5">
+        <IeltsPartQuestions
+          questions={questions}
+          sectionId={sectionId}
+          answersById={answersById}
+          attemptAnswers={attemptAnswers}
+          setAnswer={setAnswer}
+          submitted={submitted}
+          appearance="listening"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-0 w-full min-w-0">
+      {questions.map((q, i) => {
+        if (q.type !== "html_interactive") return null;
+        return (
+          <ListeningHtmlIframeItem
+            key={q.id}
+            q={q}
+            sectionId={sectionId}
+            localN={i + 1}
+            attemptAnswers={attemptAnswers}
+            setAnswer={setAnswer}
+            submitted={submitted}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function IeltsAssignmentPage() {
   const params = useParams();
   const assignmentId = typeof params?.id === "string" ? params.id : "";
@@ -571,33 +668,15 @@ export default function IeltsAssignmentPage() {
                   </div>
                 ) : null}
               </aside>
-              <div className="min-w-0">
-                <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
-                  <div
-                    className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[var(--accent-soft)] blur-3xl"
-                    aria-hidden
-                  />
-                  <div className="relative border-b border-[var(--border)] px-5 py-4 sm:px-6 sm:py-5">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Your answers</p>
-                    <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-                      <h2 className="text-lg font-semibold tracking-tight text-[var(--text)] sm:text-xl">Questions</h2>
-                      {currentSectionLabel ? (
-                        <span className="text-sm text-[var(--muted)]">{currentSectionLabel}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="relative space-y-5 px-5 py-5 sm:space-y-6 sm:px-6 sm:pb-7">
-                    <IeltsPartQuestions
-                      questions={currentSectionQuestions}
-                      sectionId={currentSectionId}
-                      answersById={answersById}
-                      attemptAnswers={attempt.answers}
-                      setAnswer={setAnswer}
-                      submitted={submitted}
-                      appearance="listening"
-                    />
-                  </div>
-                </div>
+              <div className="min-h-0 min-w-0">
+                <ListeningSectionRight
+                  questions={currentSectionQuestions}
+                  sectionId={currentSectionId}
+                  answersById={answersById}
+                  attemptAnswers={attempt.answers}
+                  setAnswer={setAnswer}
+                  submitted={submitted}
+                />
               </div>
             </div>
           ) : (

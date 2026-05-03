@@ -62,6 +62,10 @@ type HtmlInteractiveRunnerProps = {
   /** JSON-serialized answers for this question only (stable string from parent useMemo). */
   storedAnswersJson: string;
   onValuesChange: (answers: Record<string, string>) => void;
+  /** No card chrome — render only the iframe (parent supplies layout wrapper). */
+  bare?: boolean;
+  /** When `bare`, optional id on the iframe for in-page anchors (e.g. question jump). */
+  iframeId?: string;
 };
 
 export function HtmlInteractiveRunner({
@@ -71,6 +75,8 @@ export function HtmlInteractiveRunner({
   disabled,
   storedAnswersJson,
   onValuesChange,
+  bare = false,
+  iframeId,
 }: HtmlInteractiveRunnerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,6 +162,19 @@ export function HtmlInteractiveRunner({
       /* ignore */
     }
   }, [storedAnswersJson]);
+
+  if (bare) {
+    return (
+      <iframe
+        ref={iframeRef}
+        id={iframeId}
+        title={`HTML question ${questionId}`}
+        sandbox="allow-same-origin"
+        className="block min-h-[min(75vh,44rem)] w-full flex-1 border-0"
+        style={{ border: "none" }}
+      />
+    );
+  }
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
