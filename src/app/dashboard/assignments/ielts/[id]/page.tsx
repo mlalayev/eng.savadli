@@ -123,8 +123,10 @@ function groupRailMarker(g: IeltsGroup): string {
       return "W";
     case "speaking":
       return "S";
-    default:
-      return g[0]?.toUpperCase() ?? "?";
+    default: {
+      const _x: never = g;
+      return _x;
+    }
   }
 }
 
