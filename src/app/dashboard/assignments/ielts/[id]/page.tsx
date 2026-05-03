@@ -398,19 +398,20 @@ function ListeningSectionRight({
   }
 
   return (
-    <div className="min-h-0 w-full min-w-0">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col lg:h-full">
       {questions.map((q, i) => {
         if (q.type !== "html_interactive") return null;
         return (
-          <ListeningHtmlIframeItem
-            key={q.id}
-            q={q}
-            sectionId={sectionId}
-            localN={i + 1}
-            attemptAnswers={attemptAnswers}
-            setAnswer={setAnswer}
-            submitted={submitted}
-          />
+          <div key={q.id} className="flex min-h-0 min-w-0 flex-1 flex-col lg:min-h-0">
+            <ListeningHtmlIframeItem
+              q={q}
+              sectionId={sectionId}
+              localN={i + 1}
+              attemptAnswers={attemptAnswers}
+              setAnswer={setAnswer}
+              submitted={submitted}
+            />
+          </div>
         );
       })}
     </div>
@@ -647,8 +648,8 @@ export default function IeltsAssignmentPage() {
         {/* Current part only; listening uses split layout (audio | questions) */}
         <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-28 sm:px-6 sm:pb-28">
           {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
-            <div className="mx-auto grid max-w-[110rem] gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
-              <aside className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-4 lg:self-start">
+            <div className="mx-auto grid max-w-[110rem] gap-6 lg:min-h-[calc(100dvh-7.5rem)] lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-stretch lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
+              <aside className="flex min-h-0 flex-col gap-5 self-start lg:sticky lg:top-4">
                 <ListeningAudioPanel src={listeningAudioUrl} subtitle={currentSectionLabel || undefined} />
                 {currentSectionMaterialText ? (
                   <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
@@ -668,7 +669,7 @@ export default function IeltsAssignmentPage() {
                   </div>
                 ) : null}
               </aside>
-              <div className="min-h-0 min-w-0">
+              <div className="flex min-h-0 min-w-0 flex-col lg:h-full lg:min-h-0">
                 <ListeningSectionRight
                   questions={currentSectionQuestions}
                   sectionId={currentSectionId}
