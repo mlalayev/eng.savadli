@@ -513,7 +513,6 @@ export default function IeltsAssignmentPage() {
   }
 
   const submitted = Boolean(attempt.submittedAt);
-  const timerLabel = `${timerHeading} · ${formatHms(timeLeft)}`;
 
   return (
     <RoleGuard allow={["student"]}>
@@ -597,26 +596,32 @@ export default function IeltsAssignmentPage() {
           )}
         </div>
 
-        {/* Bottom bar: back + actions, then sections | question # | timer */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
-          <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-3 py-2 sm:px-4">
-            <Link href="/dashboard/my-exams" className="text-xs font-semibold text-[var(--accent)] hover:underline">
-              ← Exams
+        {/* Bottom dock: toolbar + exam nav (professional, compact) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-12px_40px_rgba(28,25,23,0.07)] supports-[backdrop-filter]:backdrop-blur-md">
+          <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[var(--border)] px-4 py-2.5 sm:px-6">
+            <Link
+              href="/dashboard/my-exams"
+              className="group inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
+            >
+              <span className="text-[var(--faint)] transition group-hover:text-[var(--accent)]" aria-hidden>
+                ←
+              </span>
+              Exams
             </Link>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 disabled={submitted}
                 onClick={() => setTimerPaused((p) => !p)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
+                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-40"
               >
-                {timerPaused ? "Resume timer" : "Pause timer"}
+                {timerPaused ? "Resume" : "Pause"}
               </button>
               <button
                 type="button"
                 disabled={busy || submitted}
                 onClick={() => void saveProgress()}
-                className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)] disabled:opacity-50"
+                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-40"
               >
                 Save
               </button>
@@ -624,97 +629,110 @@ export default function IeltsAssignmentPage() {
                 type="button"
                 disabled={busy || submitted}
                 onClick={() => void submit()}
-                className="rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                className="ml-1 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--on-accent)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-40"
               >
                 Submit
               </button>
             </div>
           </div>
-          <div className="mx-auto flex max-h-[42vh] w-full max-w-[100rem] flex-col gap-3 overflow-y-auto px-3 py-3 sm:max-h-none sm:flex-row sm:items-stretch sm:gap-4 sm:px-4">
-            {/* Left: skill rows + part pills */}
-            <div className="min-w-0 flex-1 space-y-2 border-[var(--border)] sm:border-r sm:pr-4">
-              {GROUP_ORDER.map((g) => {
-                const secs = sectionByGroup.get(g);
-                if (!secs?.length) return null;
-                return (
-                  <div key={g} className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--faint)] sm:text-xs">
-                      {groupTitle(g)}
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {secs.map((s) => {
-                        const active = s.id === currentSectionId;
-                        const count = questionsBySection[s.id]?.length ?? 0;
-                        const done = questionsBySection[s.id]?.filter((qq) => answersById.has(qq.id)).length ?? 0;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            title={s.label}
-                            onClick={() => {
-                              setCurrentSectionId(s.id);
-                              scrollToQuestionInSection(s.id, 1);
-                            }}
-                            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition sm:text-xs ${
-                              active
-                                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
-                                : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
-                            }`}
-                          >
-                            {partButtonLabel(s.id, secs.length)}
-                            <span className="ml-1 opacity-70">({done}/{count})</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
 
-            {/* Middle: question numbers */}
-            <div className="flex shrink-0 flex-col justify-center border-[var(--border)] sm:border-r sm:px-3">
-              <p className="mb-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-[var(--faint)]">
-                Questions
-              </p>
-              <div className="flex max-w-[min(100vw,28rem)] flex-wrap justify-center gap-1 sm:max-w-[20rem]">
-                {currentSectionQuestions.map((q, i) => {
-                  const localN = i + 1;
-                  const answered = answersById.has(q.id);
+          <div className="bg-[var(--background)]">
+            <div className="mx-auto flex max-h-[38vh] max-w-[100rem] flex-col gap-4 overflow-y-auto px-4 py-3 sm:max-h-none sm:flex-row sm:items-center sm:gap-0 sm:px-6 sm:py-3.5">
+              {/* Sections */}
+              <div className="min-w-0 flex-1 space-y-2.5 sm:space-y-2 sm:pr-8">
+                {GROUP_ORDER.map((g) => {
+                  const secs = sectionByGroup.get(g);
+                  if (!secs?.length) return null;
                   return (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => scrollToQuestionInSection(currentSectionId, localN)}
-                      className={`flex h-8 w-8 items-center justify-center rounded-md border text-xs font-bold ${
-                        answered
-                          ? "border-emerald-600/40 bg-emerald-600/15 text-emerald-800 dark:text-emerald-200"
-                          : "border-[var(--border)] bg-[var(--background)] text-[var(--text)]"
-                      } ring-1 ring-[var(--accent)]/30`}
-                    >
-                      {localN}
-                    </button>
+                    <div key={g} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                      <span className="shrink-0 text-xs font-medium text-[var(--muted)] sm:w-[4.75rem]">
+                        {groupTitle(g)}
+                      </span>
+                      <div className="flex min-w-0 flex-wrap gap-1">
+                        {secs.map((s) => {
+                          const active = s.id === currentSectionId;
+                          const count = questionsBySection[s.id]?.length ?? 0;
+                          const done = questionsBySection[s.id]?.filter((qq) => answersById.has(qq.id)).length ?? 0;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              title={s.label}
+                              onClick={() => {
+                                setCurrentSectionId(s.id);
+                                scrollToQuestionInSection(s.id, 1);
+                              }}
+                              className={`inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border px-2.5 text-left text-xs font-medium transition ${
+                                active
+                                  ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)] shadow-sm"
+                                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:border-[var(--muted)]/40 hover:bg-[var(--hover)]"
+                              }`}
+                            >
+                              <span className="truncate">{partButtonLabel(s.id, secs.length)}</span>
+                              <span
+                                className={
+                                  active ? "tabular-nums text-[var(--on-accent)]/75" : "tabular-nums text-[var(--faint)]"
+                                }
+                              >
+                                {done}/{count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            </div>
 
-            {/* Right: timer */}
-            <div className="flex shrink-0 flex-col justify-center sm:w-52">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--faint)]">Timer</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Listening 30m · Reading 60m · Writing 60m · Speaking 30m
-              </p>
-              <p
-                className={`mt-2 font-mono text-2xl font-bold tabular-nums ${
-                  timeLeft > 0 && timeLeft < 300 ? "text-red-600" : "text-[var(--text)]"
-                }`}
+              <div className="hidden h-14 w-px shrink-0 self-stretch bg-[var(--border)] sm:block" aria-hidden />
+
+              {/* Questions */}
+              <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
+                <span className="text-xs font-medium text-[var(--muted)]">Questions</span>
+                <div className="flex max-w-[min(100vw-2rem,18rem)] flex-wrap gap-1 sm:max-w-[14rem]">
+                  {currentSectionQuestions.map((q, i) => {
+                    const localN = i + 1;
+                    const answered = answersById.has(q.id);
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => scrollToQuestionInSection(currentSectionId, localN)}
+                        className={`flex h-8 min-w-[2rem] items-center justify-center rounded-md border px-2 text-xs font-semibold tabular-nums transition ${
+                          answered
+                            ? "border-[var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
+                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:border-[var(--muted)]/35"
+                        }`}
+                      >
+                        {localN}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="hidden h-14 w-px shrink-0 self-stretch bg-[var(--border)] sm:block" aria-hidden />
+
+              {/* Timer */}
+              <div
+                className="flex shrink-0 flex-col gap-0.5 border-t border-[var(--border)] pt-3 sm:min-w-[9.5rem] sm:border-t-0 sm:pt-0"
+                title="Listening 30m · Reading 60m · Writing 60m · Speaking 30m"
               >
-                {timerLabel}
-              </p>
-              {timeLeft === 0 && !submitted ? (
-                <p className="mt-1 text-[11px] font-semibold text-red-600">Time is up for this section.</p>
-              ) : null}
+                <span className="text-xs font-medium text-[var(--muted)]">Time</span>
+                <span className="text-[11px] leading-snug text-[var(--faint)]">{timerHeading}</span>
+                <span
+                  className={`mt-0.5 text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${
+                    timeLeft > 0 && timeLeft < 300 ? "text-[var(--danger-text)]" : "text-[var(--text)]"
+                  }`}
+                  style={{ fontVariantNumeric: "tabular-nums lining-nums" }}
+                >
+                  {formatHms(timeLeft)}
+                </span>
+                {timeLeft === 0 && !submitted ? (
+                  <p className="mt-1 text-xs font-medium text-[var(--danger-text)]">Time is up for this section.</p>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
