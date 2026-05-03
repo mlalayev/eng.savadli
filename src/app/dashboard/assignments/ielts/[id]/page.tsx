@@ -112,6 +112,22 @@ function groupTitle(g: IeltsGroup): string {
   }
 }
 
+/** One-letter skill markers in the bottom exam rail (L / R / W / S). */
+function groupRailMarker(g: IeltsGroup): string {
+  switch (g) {
+    case "listening":
+      return "L";
+    case "reading":
+      return "R";
+    case "writing":
+      return "W";
+    case "speaking":
+      return "S";
+    default:
+      return g[0]?.toUpperCase() ?? "?";
+  }
+}
+
 type QuestionAppearance = "default" | "listening";
 
 type IeltsPartQuestionsProps = {
@@ -530,7 +546,7 @@ export default function IeltsAssignmentPage() {
         ) : null}
 
         {/* Current part only; listening uses split layout (audio | questions) */}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-[13.5rem] sm:px-6 sm:pb-[11.5rem]">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--background)] px-4 py-5 pb-28 sm:px-6 sm:pb-28">
           {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
             <div className="mx-auto grid max-w-[110rem] gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(300px,380px)_1fr]">
               <aside className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-4 lg:self-start">
@@ -596,59 +612,32 @@ export default function IeltsAssignmentPage() {
           )}
         </div>
 
-        {/* Bottom dock: toolbar + exam nav (professional, compact) */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-12px_40px_rgba(28,25,23,0.07)] supports-[backdrop-filter]:backdrop-blur-md">
-          <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[var(--border)] px-4 py-2.5 sm:px-6">
+        {/* Bottom dock: single compact strip (exam rail + timer + actions) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] shadow-[0_-1px_0_0_var(--border),0_-8px_32px_rgba(28,25,23,0.04)]">
+          <div className="mx-auto flex max-w-[100rem] items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2">
             <Link
               href="/dashboard/my-exams"
-              className="group inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--text)]"
+              className="flex h-7 shrink-0 items-center whitespace-nowrap rounded-sm px-2 text-[11px] font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] sm:h-8 sm:px-2.5 sm:text-xs"
             >
-              <span className="text-[var(--faint)] transition group-hover:text-[var(--accent)]" aria-hidden>
-                ←
-              </span>
-              Exams
+              ← Exams
             </Link>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={submitted}
-                onClick={() => setTimerPaused((p) => !p)}
-                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-40"
-              >
-                {timerPaused ? "Resume" : "Pause"}
-              </button>
-              <button
-                type="button"
-                disabled={busy || submitted}
-                onClick={() => void saveProgress()}
-                className="rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] disabled:pointer-events-none disabled:opacity-40"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={busy || submitted}
-                onClick={() => void submit()}
-                className="ml-1 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--on-accent)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-40"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
 
-          <div className="bg-[var(--background)]">
-            <div className="mx-auto flex max-h-[38vh] max-w-[100rem] flex-col gap-4 overflow-y-auto px-4 py-3 sm:max-h-none sm:flex-row sm:items-center sm:gap-0 sm:px-6 sm:py-3.5">
-              {/* Sections */}
-              <div className="min-w-0 flex-1 space-y-2.5 sm:space-y-2 sm:pr-8">
+            <span className="h-5 w-px shrink-0 bg-[var(--border)] sm:h-6" aria-hidden />
+
+            <div className="min-w-0 flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex min-w-max items-center gap-3 pr-1 sm:gap-4">
                 {GROUP_ORDER.map((g) => {
                   const secs = sectionByGroup.get(g);
                   if (!secs?.length) return null;
                   return (
-                    <div key={g} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                      <span className="shrink-0 text-xs font-medium text-[var(--muted)] sm:w-[4.75rem]">
-                        {groupTitle(g)}
+                    <div key={g} className="flex items-center gap-1.5">
+                      <span
+                        className="select-none text-[10px] font-semibold tabular-nums text-[var(--faint)]"
+                        title={groupTitle(g)}
+                      >
+                        {groupRailMarker(g)}
                       </span>
-                      <div className="flex min-w-0 flex-wrap gap-1">
+                      <div className="flex items-center gap-0.5">
                         {secs.map((s) => {
                           const active = s.id === currentSectionId;
                           const count = questionsBySection[s.id]?.length ?? 0;
@@ -662,18 +651,14 @@ export default function IeltsAssignmentPage() {
                                 setCurrentSectionId(s.id);
                                 scrollToQuestionInSection(s.id, 1);
                               }}
-                              className={`inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border px-2.5 text-left text-xs font-medium transition ${
+                              className={`flex h-7 items-center gap-1 rounded-sm px-2 text-[11px] font-medium tabular-nums transition sm:h-8 sm:text-xs ${
                                 active
-                                  ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)] shadow-sm"
-                                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:border-[var(--muted)]/40 hover:bg-[var(--hover)]"
+                                  ? "bg-[var(--text)] text-[var(--surface)]"
+                                  : "text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
                               }`}
                             >
-                              <span className="truncate">{partButtonLabel(s.id, secs.length)}</span>
-                              <span
-                                className={
-                                  active ? "tabular-nums text-[var(--on-accent)]/75" : "tabular-nums text-[var(--faint)]"
-                                }
-                              >
+                              {partButtonLabel(s.id, secs.length)}
+                              <span className={active ? "opacity-60" : "opacity-50"}>
                                 {done}/{count}
                               </span>
                             </button>
@@ -683,56 +668,122 @@ export default function IeltsAssignmentPage() {
                     </div>
                   );
                 })}
-              </div>
 
-              <div className="hidden h-14 w-px shrink-0 self-stretch bg-[var(--border)] sm:block" aria-hidden />
+                <span className="h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
 
-              {/* Questions */}
-              <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--border)] pt-3 sm:border-t-0 sm:pt-0">
-                <span className="text-xs font-medium text-[var(--muted)]">Questions</span>
-                <div className="flex max-w-[min(100vw-2rem,18rem)] flex-wrap gap-1 sm:max-w-[14rem]">
-                  {currentSectionQuestions.map((q, i) => {
-                    const localN = i + 1;
-                    const answered = answersById.has(q.id);
-                    return (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => scrollToQuestionInSection(currentSectionId, localN)}
-                        className={`flex h-8 min-w-[2rem] items-center justify-center rounded-md border px-2 text-xs font-semibold tabular-nums transition ${
-                          answered
-                            ? "border-[var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
-                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:border-[var(--muted)]/35"
-                        }`}
-                      >
-                        {localN}
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center gap-1">
+                  <span className="pr-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--faint)]">Q</span>
+                  <div className="flex items-center gap-0.5">
+                    {currentSectionQuestions.map((q, i) => {
+                      const localN = i + 1;
+                      const answered = answersById.has(q.id);
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => scrollToQuestionInSection(currentSectionId, localN)}
+                          className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded-sm text-[11px] font-medium tabular-nums transition sm:h-8 sm:min-w-[2rem] sm:text-xs ${
+                            answered
+                              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                              : "text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+                          }`}
+                        >
+                          {localN}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="hidden h-14 w-px shrink-0 self-stretch bg-[var(--border)] sm:block" aria-hidden />
+            <span className="hidden h-6 w-px shrink-0 bg-[var(--border)] sm:block" aria-hidden />
 
-              {/* Timer */}
-              <div
-                className="flex shrink-0 flex-col gap-0.5 border-t border-[var(--border)] pt-3 sm:min-w-[9.5rem] sm:border-t-0 sm:pt-0"
-                title="Listening 30m · Reading 60m · Writing 60m · Speaking 30m"
+            <div
+              className="hidden shrink-0 flex-col items-end justify-center leading-none sm:flex"
+              title="Listening 30m · Reading 60m · Writing 60m · Speaking 30m"
+            >
+              <span className="max-w-[7rem] truncate text-right text-[10px] font-medium text-[var(--faint)]">
+                {timerHeading}
+              </span>
+              <span
+                className={`mt-0.5 text-base font-semibold tabular-nums tracking-tight ${
+                  timeLeft > 0 && timeLeft < 300 ? "text-[var(--danger-text)]" : "text-[var(--text)]"
+                }`}
               >
-                <span className="text-xs font-medium text-[var(--muted)]">Time</span>
-                <span className="text-[11px] leading-snug text-[var(--faint)]">{timerHeading}</span>
-                <span
-                  className={`mt-0.5 text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${
-                    timeLeft > 0 && timeLeft < 300 ? "text-[var(--danger-text)]" : "text-[var(--text)]"
-                  }`}
-                  style={{ fontVariantNumeric: "tabular-nums lining-nums" }}
-                >
-                  {formatHms(timeLeft)}
-                </span>
-                {timeLeft === 0 && !submitted ? (
-                  <p className="mt-1 text-xs font-medium text-[var(--danger-text)]">Time is up for this section.</p>
-                ) : null}
-              </div>
+                {formatHms(timeLeft)}
+              </span>
+              {timeLeft === 0 && !submitted ? (
+                <span className="mt-0.5 text-[10px] font-medium text-[var(--danger-text)]">Time up</span>
+              ) : null}
+            </div>
+
+            <div
+              className="flex shrink-0 flex-col items-end justify-center leading-none sm:hidden"
+              title="Listening 30m · Reading 60m · Writing 60m · Speaking 30m"
+            >
+              <span
+                className={`text-sm font-semibold tabular-nums ${
+                  timeLeft > 0 && timeLeft < 300 ? "text-[var(--danger-text)]" : "text-[var(--text)]"
+                }`}
+              >
+                {formatHms(timeLeft)}
+              </span>
+            </div>
+
+            <span className="h-5 w-px shrink-0 bg-[var(--border)] sm:h-6" aria-hidden />
+
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => setTimerPaused((p) => !p)}
+                className="hidden h-8 items-center rounded-sm border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-medium text-[var(--text)] transition hover:bg-[var(--hover)] disabled:pointer-events-none disabled:opacity-40 sm:inline-flex"
+              >
+                {timerPaused ? "Resume" : "Pause"}
+              </button>
+              <button
+                type="button"
+                disabled={busy || submitted}
+                onClick={() => void saveProgress()}
+                className="hidden h-8 items-center rounded-sm border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-medium text-[var(--text)] transition hover:bg-[var(--hover)] disabled:pointer-events-none disabled:opacity-40 sm:inline-flex"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={submitted}
+                onClick={() => setTimerPaused((p) => !p)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-[var(--border)] text-[var(--text)] transition hover:bg-[var(--hover)] disabled:pointer-events-none disabled:opacity-40 sm:hidden"
+                aria-label={timerPaused ? "Resume timer" : "Pause timer"}
+                title={timerPaused ? "Resume timer" : "Pause timer"}
+              >
+                {timerPaused ? (
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                ) : (
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={busy || submitted}
+                onClick={() => void saveProgress()}
+                className="inline-flex h-7 items-center rounded-sm border border-[var(--border)] px-2 text-[11px] font-medium text-[var(--text)] transition hover:bg-[var(--hover)] disabled:pointer-events-none disabled:opacity-40 sm:hidden"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy || submitted}
+                onClick={() => void submit()}
+                className="inline-flex h-7 items-center rounded-sm bg-[var(--accent)] px-3 text-[11px] font-medium text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:text-xs"
+              >
+                Submit
+              </button>
             </div>
           </div>
         </div>
