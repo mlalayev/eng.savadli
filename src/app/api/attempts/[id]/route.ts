@@ -73,6 +73,43 @@ function grade(exam: DbExam, answers: AttemptAnswer[]) {
       continue;
     }
 
+    if (q.type === "html_interactive") {
+      let obj: Record<string, string> = {};
+      if (value && typeof value === "object" && !Array.isArray(value)) obj = value as Record<string, string>;
+      else if (typeof value === "string" && value.trim()) {
+        try {
+          const j = JSON.parse(value) as unknown;
+          if (j && typeof j === "object" && !Array.isArray(j)) obj = j as Record<string, string>;
+        } catch {
+          /* ignore */
+        }
+      }
+      const specs = q.correctAnswers ?? [];
+      if (specs.length === 0) {
+        needsManual = true;
+        breakdown.push({ questionId: q.id, points: q.points, earned: 0, auto: false });
+        continue;
+      }
+      let allMatch = true;
+      for (const spec of specs) {
+        const rawStudent = String(obj[spec.name] ?? "").trim();
+        if (spec.type === "radio") {
+          const ok = rawStudent === String(spec.value).trim();
+          if (!ok) allMatch = false;
+        } else {
+          const studentAnswer = normalizeText(rawStudent);
+          const acceptable = String(spec.value)
+            .split("|")
+            .map((s) => normalizeText(s));
+          if (!acceptable.includes(studentAnswer)) allMatch = false;
+        }
+      }
+      const earned = allMatch ? q.points : 0;
+      autoScore += earned;
+      breakdown.push({ questionId: q.id, points: q.points, earned, auto: true });
+      continue;
+    }
+
     needsManual = true;
     breakdown.push({ questionId: q.id, points: q.points, earned: 0, auto: false });
   }

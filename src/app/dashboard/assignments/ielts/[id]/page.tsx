@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
+import { HtmlInteractiveRunner, parseHtmlInteractiveStored } from "@/components/exams/HtmlInteractiveRunner";
 import { formatRichText, ieltsGroupForSectionId } from "@/components/exams/shared/helpers";
-import type { IeltsGroup } from "@/components/exams/shared/types";
+import { IELTS_LISTENING_AUDIO_KEY, type IeltsGroup, type IeltsMaterialsMap } from "@/components/exams/shared/types";
 import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
 import type { ExamQuestion } from "@/lib/exams/types";
 
@@ -21,6 +22,7 @@ type Assignment = {
     questions: ExamQuestion[];
     structure?: {
       sections?: Array<{ id: string; label: string; kind: string }>;
+      materials?: IeltsMaterialsMap;
     };
   };
 };
@@ -109,6 +111,168 @@ function groupTitle(g: IeltsGroup): string {
   }
 }
 
+type IeltsPartQuestionsProps = {
+  questions: ExamQuestion[];
+  sectionId: string;
+  answersById: Map<string, unknown>;
+  attemptAnswers: Array<{ questionId: string; value: unknown }>;
+  setAnswer: (questionId: string, value: unknown) => void;
+  submitted: boolean;
+};
+
+function IeltsPartQuestions({
+  questions,
+  sectionId,
+  answersById,
+  attemptAnswers,
+  setAnswer,
+  submitted,
+}: IeltsPartQuestionsProps) {
+  if (questions.length === 0) {
+    return <p className="text-center text-sm text-[var(--muted)]">No questions in this part.</p>;
+  }
+  return (
+    <>
+      {questions.map((q, i) => (
+        <IeltsQuestionCard
+          key={q.id}
+          q={q}
+          sectionId={sectionId}
+          localN={i + 1}
+          answersById={answersById}
+          attemptAnswers={attemptAnswers}
+          setAnswer={setAnswer}
+          submitted={submitted}
+        />
+      ))}
+    </>
+  );
+}
+
+function IeltsQuestionCard({
+  q,
+  sectionId,
+  localN,
+  answersById,
+  attemptAnswers,
+  setAnswer,
+  submitted,
+}: {
+  q: ExamQuestion;
+  sectionId: string;
+  localN: number;
+  answersById: Map<string, unknown>;
+  attemptAnswers: Array<{ questionId: string; value: unknown }>;
+  setAnswer: (questionId: string, value: unknown) => void;
+  submitted: boolean;
+}) {
+  const current = answersById.get(q.id);
+  const htmlStoredJson = useMemo(() => {
+    const raw = attemptAnswers.find((a) => a.questionId === q.id)?.value;
+    return JSON.stringify(parseHtmlInteractiveStored(raw));
+  }, [attemptAnswers, q.id]);
+
+  return (
+    <div
+      id={`ielts-q-${sectionId}-${localN}`}
+      className="scroll-mt-4 rounded-2xl border border-[var(--accent)]/40 bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--accent)]/15"
+    >
+      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+        Question {localN} · {q.type} · {q.points} pts
+      </p>
+      {q.description ? (
+        <div className="mt-2 whitespace-pre-wrap border-l-2 border-[var(--border)] pl-2 text-xs font-medium italic text-[var(--muted)]">
+          {formatRichText(q.description)}
+        </div>
+      ) : null}
+      {q.type !== "rich_text" && "prompt" in q ? (
+        <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{formatRichText(q.prompt)}</div>
+      ) : null}
+      {q.type === "rich_text" && "content" in q ? (
+        <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{formatRichText(q.content)}</div>
+      ) : null}
+      {"promptImageUrl" in q && q.promptImageUrl ? (
+        <img
+          src={q.promptImageUrl}
+          alt=""
+          className="mt-3 max-h-64 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+        />
+      ) : null}
+
+      {q.type === "mcq_single" ? (
+        <div className="mt-4 space-y-2">
+          {normalizeExamChoices(q.choices as unknown).map((c, i) => (
+            <label
+              key={c.id}
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"
+            >
+              <input
+                type="radio"
+                name={`q_${q.id}`}
+                checked={Number(current) === i}
+                onChange={() => setAnswer(q.id, i)}
+                disabled={submitted}
+              />
+              <span className="min-w-0 flex-1 text-sm text-[var(--text)]">
+                <span className="block">{choiceDisplayText(c)}</span>
+                {c.imageUrl ? (
+                  <img
+                    src={c.imageUrl}
+                    alt=""
+                    className="mt-2 max-h-40 w-auto max-w-full rounded-md border border-[var(--border)] object-contain"
+                  />
+                ) : null}
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      {q.type === "short_text" ? (
+        <input
+          className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          value={typeof current === "string" ? current : String(current ?? "")}
+          onChange={(e) => setAnswer(q.id, e.target.value)}
+          placeholder="Type your answer…"
+          disabled={submitted}
+        />
+      ) : null}
+
+      {q.type === "numeric" ? (
+        <input
+          className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          type="number"
+          value={typeof current === "number" ? current : current ? Number(current) : ""}
+          onChange={(e) => setAnswer(q.id, e.target.value === "" ? "" : Number(e.target.value))}
+          placeholder="0"
+          disabled={submitted}
+        />
+      ) : null}
+
+      {q.type === "writing" ? (
+        <textarea
+          className="mt-4 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          value={typeof current === "string" ? current : String(current ?? "")}
+          onChange={(e) => setAnswer(q.id, e.target.value)}
+          placeholder="Write your response…"
+          disabled={submitted}
+        />
+      ) : null}
+
+      {q.type === "html_interactive" ? (
+        <HtmlInteractiveRunner
+          questionId={q.id}
+          htmlContent={q.htmlContent}
+          cssContent={q.cssContent}
+          disabled={submitted}
+          storedAnswersJson={htmlStoredJson}
+          onValuesChange={(answers) => setAnswer(q.id, answers)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export default function IeltsAssignmentPage() {
   const params = useParams();
   const assignmentId = typeof params?.id === "string" ? params.id : "";
@@ -170,17 +334,19 @@ export default function IeltsAssignmentPage() {
     return map;
   }, [sections]);
 
-  const orderedQuestions = useMemo(() => {
-    const out: { q: ExamQuestion; globalN: number; sectionId: string }[] = [];
-    let n = 0;
-    for (const s of sections) {
-      for (const q of questionsBySection[s.id] ?? []) {
-        n += 1;
-        out.push({ q, globalN: n, sectionId: s.id });
-      }
-    }
-    return out;
-  }, [sections, questionsBySection]);
+  const ieltsMaterials = useMemo((): IeltsMaterialsMap => {
+    const s = assignment?.exam.structure as { materials?: IeltsMaterialsMap } | undefined;
+    return s?.materials ?? {};
+  }, [assignment]);
+
+  const listeningAudioUrl = ieltsMaterials[IELTS_LISTENING_AUDIO_KEY]?.audioUrl?.trim() ?? "";
+
+  const currentSectionQuestions = useMemo(
+    () => questionsBySection[currentSectionId] ?? [],
+    [questionsBySection, currentSectionId],
+  );
+
+  const currentSectionMaterialText = ieltsMaterials[currentSectionId]?.text?.trim() ?? "";
 
   const currentGroup = useMemo((): IeltsGroup | null => {
     if (currentSectionId === LEGACY_SINGLE_SECTION_ID) return "reading";
@@ -247,8 +413,8 @@ export default function IeltsAssignmentPage() {
     return () => clearInterval(t);
   }, [timerPaused, timeLeft, attempt?.submittedAt]);
 
-  const scrollToGlobal = useCallback((globalN: number) => {
-    const el = document.getElementById(`ielts-q-${globalN}`);
+  const scrollToQuestionInSection = useCallback((sectionId: string, localN: number) => {
+    const el = document.getElementById(`ielts-q-${sectionId}-${localN}`);
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
@@ -373,118 +539,51 @@ export default function IeltsAssignmentPage() {
           </div>
         ) : null}
 
-        {/* Questions (global order); scroll above bottom bar */}
+        {/* Current part only; listening uses split layout (audio | questions) */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[11rem] sm:pb-[9.5rem]">
-          <div className="mx-auto max-w-3xl space-y-6">
-            {orderedQuestions.length === 0 ? (
-              <p className="text-center text-sm text-[var(--muted)]">No questions in this exam.</p>
-            ) : null}
-            {orderedQuestions.map(({ q, globalN, sectionId }) => {
-              const current = answersById.get(q.id);
-              const inSection = sectionId === currentSectionId;
-              return (
-                <div
-                  key={q.id}
-                  id={`ielts-q-${globalN}`}
-                  className={`scroll-mt-4 rounded-2xl border bg-[var(--surface)] p-5 shadow-sm ${
-                    inSection ? "border-[var(--accent)]/50 ring-1 ring-[var(--accent)]/20" : "border-[var(--border)]"
-                  }`}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                    Question {globalN} · {q.type} · {q.points} pts
-                  </p>
-                  {q.description ? (
-                    <div className="mt-2 whitespace-pre-wrap border-l-2 border-[var(--border)] pl-2 text-xs font-medium italic text-[var(--muted)]">
-                      {formatRichText(q.description)}
-                    </div>
-                  ) : null}
-                  {q.type !== "rich_text" && "prompt" in q ? (
-                    <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
-                      {formatRichText(q.prompt)}
-                    </div>
-                  ) : null}
-                  {q.type === "rich_text" && "content" in q ? (
-                    <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
-                      {formatRichText(q.content)}
-                    </div>
-                  ) : null}
-                  {"promptImageUrl" in q && q.promptImageUrl ? (
-                    <img
-                      src={q.promptImageUrl}
-                      alt=""
-                      className="mt-3 max-h-64 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
-                    />
-                  ) : null}
-
-                  {q.type === "mcq_single" ? (
-                    <div className="mt-4 space-y-2">
-                      {normalizeExamChoices(q.choices as unknown).map((c, i) => (
-                        <label
-                          key={c.id}
-                          className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"
-                        >
-                          <input
-                            type="radio"
-                            name={`q_${q.id}`}
-                            checked={Number(current) === i}
-                            onChange={() => setAnswer(q.id, i)}
-                            disabled={submitted}
-                          />
-                          <span className="min-w-0 flex-1 text-sm text-[var(--text)]">
-                            <span className="block">{choiceDisplayText(c)}</span>
-                            {c.imageUrl ? (
-                              <img
-                                src={c.imageUrl}
-                                alt=""
-                                className="mt-2 max-h-40 w-auto max-w-full rounded-md border border-[var(--border)] object-contain"
-                              />
-                            ) : null}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {q.type === "short_text" ? (
-                    <input
-                      className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
-                      value={typeof current === "string" ? current : String(current ?? "")}
-                      onChange={(e) => setAnswer(q.id, e.target.value)}
-                      placeholder="Type your answer…"
-                      disabled={submitted}
-                    />
-                  ) : null}
-
-                  {q.type === "numeric" ? (
-                    <input
-                      className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
-                      type="number"
-                      value={typeof current === "number" ? current : current ? Number(current) : ""}
-                      onChange={(e) => setAnswer(q.id, e.target.value === "" ? "" : Number(e.target.value))}
-                      placeholder="0"
-                      disabled={submitted}
-                    />
-                  ) : null}
-
-                  {q.type === "writing" ? (
-                    <textarea
-                      className="mt-4 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
-                      value={typeof current === "string" ? current : String(current ?? "")}
-                      onChange={(e) => setAnswer(q.id, e.target.value)}
-                      placeholder="Write your response…"
-                      disabled={submitted}
-                    />
-                  ) : null}
-
-                  {q.type === "html_interactive" ? (
-                    <p className="mt-4 text-sm text-[var(--muted)]">
-                      HTML questions are not supported in this view yet. Use the standard assignment page if needed.
-                    </p>
-                  ) : null}
+          {currentGroup === "listening" && currentSectionId !== LEGACY_SINGLE_SECTION_ID ? (
+            <div className="mx-auto flex max-w-6xl flex-col gap-6 lg:flex-row lg:items-start">
+              <aside className="shrink-0 space-y-4 lg:sticky lg:top-4 lg:w-[min(100%,22rem)]">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Listening audio</p>
+                  {listeningAudioUrl ? (
+                    <audio key={listeningAudioUrl} controls className="mt-3 w-full" src={listeningAudioUrl} preload="metadata" />
+                  ) : (
+                    <p className="mt-2 text-sm text-[var(--muted)]">No audio URL set for this exam.</p>
+                  )}
                 </div>
-              );
-            })}
-          </div>
+                {currentSectionMaterialText ? (
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--faint)]">Script / notes</p>
+                    <div className="mt-2 max-h-[50vh] overflow-y-auto whitespace-pre-wrap text-sm text-[var(--text)]">
+                      {formatRichText(currentSectionMaterialText)}
+                    </div>
+                  </div>
+                ) : null}
+              </aside>
+              <div className="min-w-0 flex-1 space-y-6">
+                <IeltsPartQuestions
+                  questions={currentSectionQuestions}
+                  sectionId={currentSectionId}
+                  answersById={answersById}
+                  attemptAnswers={attempt.answers}
+                  setAnswer={setAnswer}
+                  submitted={submitted}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-3xl space-y-6">
+              <IeltsPartQuestions
+                questions={currentSectionQuestions}
+                sectionId={currentSectionId}
+                answersById={answersById}
+                attemptAnswers={attempt.answers}
+                setAnswer={setAnswer}
+                submitted={submitted}
+              />
+            </div>
+          )}
         </div>
 
         {/* Bottom bar: sections | question # | timer */}
@@ -512,8 +611,7 @@ export default function IeltsAssignmentPage() {
                             title={s.label}
                             onClick={() => {
                               setCurrentSectionId(s.id);
-                              const first = orderedQuestions.find((o) => o.sectionId === s.id);
-                              if (first) scrollToGlobal(first.globalN);
+                              scrollToQuestionInSection(s.id, 1);
                             }}
                             className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition sm:text-xs ${
                               active
@@ -538,24 +636,21 @@ export default function IeltsAssignmentPage() {
                 Questions
               </p>
               <div className="flex max-w-[min(100vw,28rem)] flex-wrap justify-center gap-1 sm:max-w-[20rem]">
-                {orderedQuestions.map(({ q, globalN, sectionId }) => {
+                {currentSectionQuestions.map((q, i) => {
+                  const localN = i + 1;
                   const answered = answersById.has(q.id);
-                  const activePart = sectionId === currentSectionId;
                   return (
                     <button
-                      key={globalN}
+                      key={q.id}
                       type="button"
-                      onClick={() => {
-                        setCurrentSectionId(sectionId);
-                        scrollToGlobal(globalN);
-                      }}
+                      onClick={() => scrollToQuestionInSection(currentSectionId, localN)}
                       className={`flex h-8 w-8 items-center justify-center rounded-md border text-xs font-bold ${
                         answered
                           ? "border-emerald-600/40 bg-emerald-600/15 text-emerald-800 dark:text-emerald-200"
                           : "border-[var(--border)] bg-[var(--background)] text-[var(--text)]"
-                      } ${activePart ? "ring-1 ring-[var(--accent)]/40" : ""}`}
+                      } ring-1 ring-[var(--accent)]/30`}
                     >
-                      {globalN}
+                      {localN}
                     </button>
                   );
                 })}
