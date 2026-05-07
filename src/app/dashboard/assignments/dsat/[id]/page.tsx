@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
+import { SatExamShell, SatQuestionNavButton } from "@/components/exams/sat-exam/sat-exam-shell";
+import { SatChevronDown, SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
+import { SatMathText } from "@/components/exams/sat-exam/sat-math-text";
 import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
 import type { ExamQuestion } from "@/lib/exams/types";
 
@@ -60,23 +63,12 @@ function formatTime(totalSeconds: number) {
   return `${mm}:${ss}`;
 }
 
-function EliminateIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      aria-hidden
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <path d="M6 18L18 6" />
-      <path d="M6 6l12 12" />
-    </svg>
-  );
+function dsatSectionRibbon(sectionId: string): { meta: string; subject: string } {
+  if (sectionId === "rw1") return { meta: "Section 1, Module 1:", subject: "Reading and Writing" };
+  if (sectionId === "rw2") return { meta: "Section 1, Module 2:", subject: "Reading and Writing" };
+  if (sectionId === "math1") return { meta: "Section 2, Module 1:", subject: "Math" };
+  if (sectionId === "math2") return { meta: "Section 2, Module 2:", subject: "Math" };
+  return { meta: "Section 1, Module 1:", subject: "Reading and Writing" };
 }
 
 export default function DsatAssignmentPage() {
@@ -92,6 +84,8 @@ export default function DsatAssignmentPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [leftHidden, setLeftHidden] = useState(false);
+  const [timerHidden, setTimerHidden] = useState(false);
+  const [crossedOut, setCrossedOut] = useState<Record<string, Record<number, boolean>>>({});
 
   const sections = useMemo(() => {
     const from = assignment?.exam.structure?.sections;
@@ -130,6 +124,10 @@ export default function DsatAssignmentPage() {
   useEffect(() => {
     setRemaining(timerSeed);
   }, [timerSeed, activeSectionId]);
+
+  useEffect(() => {
+    setTimerHidden(false);
+  }, [activeSectionId]);
 
   async function loadAll() {
     setError(null);
@@ -206,8 +204,6 @@ export default function DsatAssignmentPage() {
     });
   }
 
-  const questions = assignment?.exam.questions ?? [];
-  const activeQuestion = sectionQuestions[Math.min(activeIndex, Math.max(0, sectionQuestions.length - 1))];
 
   const passageId =
     assignment?.exam.structure?.questionPassageBySection?.[activeSectionId]?.[activeQuestion?.id ?? ""] ?? "";
@@ -242,177 +238,149 @@ export default function DsatAssignmentPage() {
 
   const submitted = Boolean(attempt.submittedAt);
   const totalInModule = sectionQuestions.length;
+  const isMath = activeSectionId.startsWith("math");
+  const ribbon = dsatSectionRibbon(activeSectionId);
+
+  const timeLabel = isMath && timerHidden ? "–:–" : formatTime(remaining);
+
+  function toggleCrossOut(idx: number) {
+    if (submitted) return;
+    setCrossedOut((prev) => {
+      const row = { ...(prev[activeQuestion.id] ?? {}) };
+      row[idx] = !row[idx];
+      return { ...prev, [activeQuestion.id]: row };
+    });
+  }
+
+  const passageNode =
+    !isMath && activePassage ? (
+      <div className="space-y-5 text-[15px] leading-7 text-black">
+        {activePassage.intros?.length ? (
+          <div className="space-y-2">
+            {activePassage.intros.map((line, idx) => (
+              <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-neutral-700">
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {activePassage.text?.length ? (
+          <div className="space-y-4">
+            {activePassage.text.map((para, idx) => (
+              <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
+                {para}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-neutral-500">No passage configured for this question.</p>
+        )}
+      </div>
+    ) : null;
+
+  const questionBody =
+    activeQuestion.type === "mcq_single" ? (
+      <>
+        <div className="text-[15px] font-normal leading-relaxed text-black">
+          {isMath ? (
+            <SatMathText text={activeQuestion.prompt} />
+          ) : (
+            <p className="whitespace-pre-wrap">{activeQuestion.prompt}</p>
+          )}
+        </div>
+        <div className="mt-5 space-y-2.5">
+          {normalizeExamChoices(activeQuestion.choices as unknown).map((c, idx) => {
+            const checked = Number(selectedIndex) === idx;
+            const letter = String.fromCharCode(65 + idx);
+            const struck = Boolean(crossedOut[activeQuestion.id]?.[idx]);
+            return (
+              <div key={c.id} className="flex items-stretch gap-2">
+                <button
+                  type="button"
+                  disabled={submitted}
+                  onClick={() => setAnswer(activeQuestion.id, idx)}
+                  className={`flex min-h-[48px] w-full items-center gap-3 rounded-md border bg-white px-4 py-3 text-left text-[15px] transition ${
+                    checked ? "ring-1 ring-black" : "hover:bg-neutral-50"
+                  } ${struck ? "opacity-55" : ""} ${submitted ? "opacity-95" : ""}`}
+                  style={{ borderColor: "#d1d1d1" }}
+                >
+                  <span className={`shrink-0 font-semibold text-black ${struck ? "line-through" : ""}`}>{letter}:</span>
+                  <span className={`min-w-0 flex-1 text-black ${struck ? "line-through" : ""}`}>
+                    {isMath ? <SatMathText text={choiceDisplayText(c)} /> : choiceDisplayText(c)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={submitted}
+                  onClick={() => toggleCrossOut(idx)}
+                  aria-label="Eliminate choice"
+                  title="Eliminate"
+                  className="inline-flex w-10 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 disabled:opacity-40"
+                >
+                  <SatEliminateIcon />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    ) : (
+      <p className="text-sm text-neutral-500">This DSAT view currently supports MCQ only.</p>
+    );
 
   return (
     <RoleGuard allow={["student"]}>
-      <div className="h-dvh bg-white text-neutral-900">
-        {error ? <div className="border-b border-neutral-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
-
-        <header className="relative z-10 h-14 border-b border-neutral-200 bg-white">
-          <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-800 hover:bg-neutral-100"
+      <SatExamShell
+        variant={isMath ? "math" : "verbal"}
+        timeLabel={timeLabel}
+        onHideClick={() => {
+          if (isMath) setTimerHidden((v) => !v);
+          else setLeftHidden((v) => !v);
+        }}
+        hideToggleLabel={isMath ? (timerHidden ? "Show" : "Hide") : leftHidden ? "Show" : "Hide"}
+        showPassageColumn={!isMath && !leftHidden}
+        passageColumn={passageNode}
+        sectionMetaLine={isMath ? ribbon.meta : undefined}
+        sectionSubject={isMath ? ribbon.subject : undefined}
+        questionNumber={activeIndex + 1}
+        markedForReview={Boolean(marked[activeQuestion.id])}
+        onToggleMark={() =>
+          setMarked((m) => ({
+            ...m,
+            [activeQuestion.id]: !m[activeQuestion.id],
+          }))
+        }
+        markDisabled={submitted}
+        topBanner={
+          error ? (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{error}</div>
+          ) : undefined
+        }
+        footerQuestionNav={
+          <SatQuestionNavButton current={activeIndex + 1} total={totalInModule}>
+            <select
+              className="max-w-[100px] cursor-pointer appearance-none bg-transparent pr-1 text-[13px] font-semibold text-white outline-none"
+              value={activeIndex}
+              onChange={(e) => setActiveIndex(Number(e.target.value))}
+              disabled={submitted}
+              aria-label="Jump to question"
             >
-              Directions <span className="text-xs text-neutral-500">▼</span>
-            </button>
-
-            <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-              <div className="text-lg font-semibold tabular-nums text-neutral-900">{formatTime(remaining)}</div>
-              <button
-                type="button"
-                onClick={() => setLeftHidden((v) => !v)}
-                className="mt-1 rounded-full border border-neutral-300 bg-white px-3 py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-              >
-                {leftHidden ? "Show" : "Hide"}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-800 hover:bg-neutral-100"
-              aria-label="Annotate"
-            >
-              <span className="text-base">✎</span>
-              <span className="hidden sm:inline">Annotate</span>
-            </button>
-          </div>
-        </header>
-
-        <div className="border-b border-dashed border-neutral-300 bg-white" />
-
-        <main className="mx-auto grid h-[calc(100dvh-56px-44px)] max-w-6xl grid-cols-1 gap-0 px-4 py-4 lg:grid-cols-2">
-          {!leftHidden ? (
-            <section className="min-h-0 overflow-y-auto border border-neutral-200 bg-white p-6 lg:border-r-0">
-              <div className="space-y-5 text-[15px] leading-7 text-neutral-800">
-                {activeSectionId.startsWith("math") ? (
-                  <div className="space-y-3">
-                    <p className="font-medium text-neutral-600">Directions</p>
-                    <p className="whitespace-pre-wrap">Solve each problem and select the best answer choice.</p>
-                  </div>
-                ) : activePassage?.intros?.length ? (
-                  <div className="space-y-2">
-                    {activePassage.intros.map((line, idx) => (
-                      <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-neutral-600">
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {!activeSectionId.startsWith("math") && activePassage?.text?.length ? (
-                  <div className="space-y-4">
-                    {activePassage.text.map((para, idx) => (
-                      <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
-                        {para}
-                      </p>
-                    ))}
-                  </div>
-                ) : !activeSectionId.startsWith("math") ? (
-                  <p className="text-neutral-500">No passage configured for this question.</p>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          <section className="min-h-0 overflow-y-auto border border-neutral-200 bg-white p-6">
-            <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-neutral-900 text-sm font-bold text-white">
-                {activeIndex + 1}
-              </div>
-              <label className="flex min-w-0 flex-1 items-center gap-2 rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-700">
-                <input
-                  type="checkbox"
-                  checked={Boolean(marked[activeQuestion.id])}
-                  onChange={(e) => setMarked((m) => ({ ...m, [activeQuestion.id]: e.target.checked }))}
-                  disabled={submitted}
-                />
-                Mark for Review
-              </label>
-            </div>
-
-            <div className="mt-5 text-[15px] leading-6 text-neutral-800">
-              <p className="font-medium">{"prompt" in activeQuestion ? activeQuestion.prompt : ""}</p>
-
-              {activeQuestion.type === "mcq_single" ? (
-                <div className="mt-4 space-y-3">
-                  {normalizeExamChoices(activeQuestion.choices as unknown).map((c, idx) => {
-                    const checked = Number(selectedIndex) === idx;
-                    const letter = String.fromCharCode(65 + idx);
-                    return (
-                      <div key={c.id} className="flex items-stretch gap-2">
-                        <button
-                          type="button"
-                          disabled={submitted}
-                          onClick={() => setAnswer(activeQuestion.id, idx)}
-                          className={`flex w-full items-center gap-3 rounded border px-4 py-3 text-left transition ${
-                            checked ? "border-neutral-900" : "border-neutral-300 hover:border-neutral-400"
-                          } ${submitted ? "opacity-90" : ""}`}
-                        >
-                          <span className="w-7 shrink-0 text-sm font-semibold text-neutral-700">{letter}:</span>
-                          <span className="min-w-0 flex-1">{choiceDisplayText(c)}</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled
-                          aria-label="Eliminate choice"
-                          title="Eliminate"
-                          className="inline-flex w-10 items-center justify-center rounded border border-transparent text-neutral-400"
-                        >
-                          <EliminateIcon />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-neutral-500">This DSAT view currently supports MCQ only.</p>
-              )}
-            </div>
-          </section>
-        </main>
-
-        <footer className="h-11 border-t border-neutral-200 bg-white">
-          <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
-            <label className="inline-flex items-center gap-2 rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white">
-              <span>
-                Question {activeIndex + 1} of {totalInModule}
-              </span>
-              <select
-                className="cursor-pointer bg-transparent text-xs font-semibold text-white outline-none"
-                value={activeIndex}
-                onChange={(e) => setActiveIndex(Number(e.target.value))}
-                disabled={submitted}
-              >
-                {sectionQuestions.map((q, i) => (
-                  <option key={q.id} value={i}>
-                    {i + 1}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => goto(-1)}
-                disabled={activeIndex === 0}
-                className="h-9 rounded-full border border-neutral-300 bg-white px-6 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => goto(1)}
-                disabled={activeIndex >= sectionQuestions.length - 1}
-                className="h-9 rounded-full bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </footer>
-      </div>
+              {sectionQuestions.map((q, i) => (
+                <option key={q.id} value={i} className="bg-neutral-900 text-white">
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+            <SatChevronDown className="h-3 w-3 shrink-0 text-white" />
+          </SatQuestionNavButton>
+        }
+        onBack={() => goto(-1)}
+        onNext={() => goto(1)}
+        backDisabled={activeIndex === 0}
+        nextDisabled={activeIndex >= sectionQuestions.length - 1}
+      >
+        {questionBody}
+      </SatExamShell>
     </RoleGuard>
   );
 }

@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
-import { createSatVerbalTemplate } from "@/lib/exams/dsat-template";
+import { SatExamShell, SatQuestionNavButton } from "@/components/exams/sat-exam/sat-exam-shell";
+import { SatChevronDown, SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
+import { SatMathText } from "@/components/exams/sat-exam/sat-math-text";
+import { createSatFullTemplate, createSatVerbalTemplate } from "@/lib/exams/dsat-template";
 
 function formatTime(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -12,18 +16,53 @@ function formatTime(totalSeconds: number) {
 }
 
 export default function DsatPracticePage() {
-  const exam = useMemo(() => createSatVerbalTemplate(), []);
-  const questions = exam.verbal.questions;
-  const passages = exam.verbal.passages;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-dvh items-center justify-center bg-white text-sm text-neutral-600">Loading…</div>
+      }
+    >
+      <DsatPracticeContent />
+    </Suspense>
+  );
+}
+
+function DsatPracticeContent() {
+  const searchParams = useSearchParams();
+  const isMath = searchParams.get("mode") === "math";
+
+  const verbalExam = useMemo(() => createSatVerbalTemplate(), []);
+  const fullExam = useMemo(() => createSatFullTemplate(), []);
+  const mathModule = useMemo(() => fullExam.modules.find((m) => m.id === "math2") ?? fullExam.modules[0], [fullExam]);
+
+  const questions = useMemo(
+    () => (isMath ? mathModule.questions : verbalExam.verbal.questions),
+    [isMath, mathModule.questions, verbalExam.verbal.questions],
+  );
+  const passages = verbalExam.verbal.passages;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeQuestion = questions[Math.min(activeIndex, Math.max(0, questions.length - 1))];
-  const activePassage = passages.find((p) => p.id === activeQuestion.passageId) ?? passages[0];
+  const activePassage = useMemo(() => {
+    if (isMath) return null;
+    const pid = "passageId" in activeQuestion ? activeQuestion.passageId : "";
+    return passages.find((p) => p.id === pid) ?? passages[0];
+  }, [isMath, activeQuestion, passages]);
 
   const [selected, setSelected] = useState<Record<string, number | null>>({});
   const [marked, setMarked] = useState<Record<string, boolean>>({});
-  const [remaining, setRemaining] = useState(exam.durationSeconds);
+  const duration = isMath ? mathModule.durationSeconds : verbalExam.durationSeconds;
+  const [remaining, setRemaining] = useState(duration);
   const [leftHidden, setLeftHidden] = useState(false);
+  const [timerHidden, setTimerHidden] = useState(false);
+  const [crossedOut, setCrossedOut] = useState<Record<string, Record<number, boolean>>>({});
+
+  useEffect(() => {
+    setActiveIndex(0);
+    setRemaining(duration);
+    setTimerHidden(false);
+    setLeftHidden(false);
+  }, [isMath, duration]);
 
   useEffect(() => {
     const t = window.setInterval(() => {
@@ -46,160 +85,125 @@ export default function DsatPracticePage() {
     });
   }
 
+  function toggleCrossOut(idx: number) {
+    setCrossedOut((prev) => {
+      const row = { ...(prev[activeQuestion.id] ?? {}) };
+      row[idx] = !row[idx];
+      return { ...prev, [activeQuestion.id]: row };
+    });
+  }
+
+  const timeLabel = isMath && timerHidden ? "–:–" : formatTime(remaining);
+
+  const passageNode =
+    !isMath && activePassage ? (
+      <div className="space-y-5 text-[15px] leading-7 text-black">
+        {activePassage.intros?.length ? (
+          <div className="space-y-2">
+            {activePassage.intros.map((line, idx) => (
+              <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-neutral-700">
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {activePassage.text?.length ? (
+          <div className="space-y-4">
+            {activePassage.text.map((para, idx) => (
+              <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
+                {para}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        <p className="text-[11px] font-medium tabular-nums text-neutral-500">
+          {answeredCount}/{questions.length} answered
+        </p>
+      </div>
+    ) : null;
+
+  const questionBody = (
+    <>
+      <div className="text-[15px] font-normal leading-relaxed text-black">
+        {isMath ? <SatMathText text={activeQuestion.question} /> : <p className="whitespace-pre-wrap">{activeQuestion.question}</p>}
+      </div>
+      <div className="mt-5 space-y-2.5">
+        {activeQuestion.choices.map((choice, idx) => {
+          const checked = selected[activeQuestion.id] === idx;
+          const letter = String.fromCharCode(65 + idx);
+          const struck = Boolean(crossedOut[activeQuestion.id]?.[idx]);
+          return (
+            <div key={`${activeQuestion.id}_${idx}`} className="flex items-stretch gap-2">
+              <button
+                type="button"
+                onClick={() => setSelected((s) => ({ ...s, [activeQuestion.id]: idx }))}
+                className={`flex min-h-[48px] w-full items-center gap-3 rounded-md border bg-white px-4 py-3 text-left text-[15px] transition ${
+                  checked ? "ring-1 ring-black" : "hover:bg-neutral-50"
+                } ${struck ? "opacity-55" : ""}`}
+                style={{ borderColor: "#d1d1d1" }}
+              >
+                <span className={`shrink-0 font-semibold text-black ${struck ? "line-through" : ""}`}>{letter}:</span>
+                <span className={`min-w-0 flex-1 text-black ${struck ? "line-through" : ""}`}>
+                  {isMath ? <SatMathText text={choice} /> : choice}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleCrossOut(idx)}
+                aria-label="Eliminate choice"
+                title="Eliminate"
+                className="inline-flex w-10 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+              >
+                <SatEliminateIcon />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
   return (
     <RoleGuard allow={["student"]}>
-      <div className="min-h-[calc(100vh-56px)] bg-[var(--background)]">
-        <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
+      <SatExamShell
+        variant={isMath ? "math" : "verbal"}
+        timeLabel={timeLabel}
+        onHideClick={() => {
+          if (isMath) setTimerHidden((v) => !v);
+          else setLeftHidden((v) => !v);
+        }}
+        hideToggleLabel={isMath ? (timerHidden ? "Show" : "Hide") : leftHidden ? "Show" : "Hide"}
+        showPassageColumn={!isMath && !leftHidden}
+        passageColumn={passageNode}
+        sectionMetaLine={isMath ? "Section 2, Module 2:" : undefined}
+        sectionSubject={isMath ? "Math" : undefined}
+        questionNumber={activeIndex + 1}
+        markedForReview={Boolean(marked[activeQuestion.id])}
+        onToggleMark={() => setMarked((m) => ({ ...m, [activeQuestion.id]: !m[activeQuestion.id] }))}
+        footerQuestionNav={
+          <SatQuestionNavButton current={activeIndex + 1} total={questions.length}>
+            <select
+              className="max-w-[100px] cursor-pointer appearance-none bg-transparent pr-1 text-[13px] font-semibold text-white outline-none"
+              value={activeIndex}
+              onChange={(e) => setActiveIndex(Number(e.target.value))}
+              aria-label="Jump to question"
             >
-              Directions <span className="text-[10px] text-[var(--muted)]">▼</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold tabular-nums text-[var(--text)]">{formatTime(remaining)}</span>
-              <button
-                type="button"
-                onClick={() => setLeftHidden((v) => !v)}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
-              >
-                {leftHidden ? "Show" : "Hide"}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
-              aria-label="Annotate"
-              title="Annotate"
-            >
-              ✎
-            </button>
-          </div>
-        </header>
-
-        <main className="mx-auto grid max-w-6xl gap-0 px-4 py-4 lg:grid-cols-2">
-          {!leftHidden ? (
-            <section className="min-h-[70vh] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm lg:rounded-r-none lg:border-r-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                    {exam.title}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">Passage</p>
-                </div>
-                <div className="text-xs font-semibold text-[var(--muted)]">
-                  {answeredCount}/{questions.length} answered
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text)]">
-                {activePassage?.intros?.length ? (
-                  <div className="space-y-2">
-                    {activePassage.intros.map((line, idx) => (
-                      <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-[var(--muted)]">
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {activePassage?.text?.length ? (
-                  <div className="space-y-3">
-                    {activePassage.text.map((para, idx) => (
-                      <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
-                        {para}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          <section
-            className={`min-h-[70vh] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm ${
-              leftHidden ? "" : "lg:rounded-l-none"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--hover-strong)] text-xs font-bold text-[var(--text)]">
-                  {activeIndex + 1}
-                </span>
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)]">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(marked[activeQuestion.id])}
-                    onChange={(e) => setMarked((m) => ({ ...m, [activeQuestion.id]: e.target.checked }))}
-                  />
-                  Mark for Review
-                </label>
-              </div>
-              <div className="text-xs font-semibold text-[var(--muted)] tabular-nums">
-                {activeIndex + 1} / {questions.length}
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-sm font-semibold text-[var(--text)]">{activeQuestion.question}</p>
-
-              <div className="mt-4 space-y-2">
-                {activeQuestion.choices.map((choice, idx) => {
-                  const checked = selected[activeQuestion.id] === idx;
-                  const letter = String.fromCharCode(65 + idx);
-                  return (
-                    <button
-                      key={`${activeQuestion.id}_${idx}`}
-                      type="button"
-                      onClick={() => setSelected((s) => ({ ...s, [activeQuestion.id]: idx }))}
-                      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        checked
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text)]"
-                          : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-start gap-3">
-                        <span
-                          className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                            checked ? "bg-[var(--accent)] text-[var(--on-accent)]" : "bg-[var(--hover-strong)] text-[var(--text)]"
-                          }`}
-                        >
-                          {letter}
-                        </span>
-                        <span className="min-w-0">{choice}</span>
-                      </span>
-                      <span className="text-xs font-semibold text-[var(--muted)]">{checked ? "✓" : ""}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between border-t border-[var(--border)] pt-4">
-              <button
-                type="button"
-                onClick={() => goto(-1)}
-                disabled={activeIndex === 0}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => goto(1)}
-                disabled={activeIndex === questions.length - 1}
-                className="rounded-xl bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </section>
-        </main>
-      </div>
+              {questions.map((q, i) => (
+                <option key={q.id} value={i} className="bg-neutral-900 text-white">
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+            <SatChevronDown className="h-3 w-3 shrink-0 text-white" />
+          </SatQuestionNavButton>
+        }
+        onBack={() => goto(-1)}
+        onNext={() => goto(1)}
+        backDisabled={activeIndex === 0}
+        nextDisabled={activeIndex === questions.length - 1}
+      >
+        {questionBody}
+      </SatExamShell>
     </RoleGuard>
   );
 }
-
