@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
 import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
@@ -59,6 +58,25 @@ function formatTime(totalSeconds: number) {
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${mm}:${ss}`;
+}
+
+function EliminateIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M6 18L18 6" />
+      <path d="M6 6l12 12" />
+    </svg>
+  );
 }
 
 export default function DsatAssignmentPage() {
@@ -223,112 +241,67 @@ export default function DsatAssignmentPage() {
   }
 
   const submitted = Boolean(attempt.submittedAt);
+  const totalInModule = sectionQuestions.length;
 
   return (
     <RoleGuard allow={["student"]}>
-      <div className="min-h-[calc(100vh-56px)] bg-[var(--background)]">
-        {error ? (
-          <div className="border-b border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-2 text-sm text-[var(--error-text)]">
-            {error}
-          </div>
-        ) : null}
+      <div className="h-dvh bg-white text-neutral-900">
+        {error ? <div className="border-b border-neutral-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div> : null}
 
-        <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-            <Link
-              href="/dashboard/assignments"
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
+        <header className="relative z-10 h-14 border-b border-neutral-200 bg-white">
+          <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-800 hover:bg-neutral-100"
             >
-              ← Exams
-            </Link>
+              Directions <span className="text-xs text-neutral-500">▼</span>
+            </button>
 
-            <div className="flex items-center gap-3">
-              <label className="hidden items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] sm:inline-flex">
-                Module
-                <select
-                  className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs font-semibold"
-                  value={activeSectionId}
-                  onChange={(e) => {
-                    setActiveSectionId(e.target.value);
-                    setActiveIndex(0);
-                  }}
-                  disabled={submitted}
-                >
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <span className="text-lg font-semibold tabular-nums text-[var(--text)]">{formatTime(remaining)}</span>
+            <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+              <div className="text-lg font-semibold tabular-nums text-neutral-900">{formatTime(remaining)}</div>
               <button
                 type="button"
                 onClick={() => setLeftHidden((v) => !v)}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
+                className="mt-1 rounded-full border border-neutral-300 bg-white px-3 py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
               >
                 {leftHidden ? "Show" : "Hide"}
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={busy || submitted}
-                onClick={() => void saveProgress()}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-60"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={busy || submitted}
-                onClick={() => void submit()}
-                className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60"
-              >
-                Submit
-              </button>
-            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-800 hover:bg-neutral-100"
+              aria-label="Annotate"
+            >
+              <span className="text-base">✎</span>
+              <span className="hidden sm:inline">Annotate</span>
+            </button>
           </div>
         </header>
 
-        <main className="mx-auto grid max-w-6xl gap-0 px-4 py-4 lg:grid-cols-2">
-          {!leftHidden ? (
-            <section className="min-h-[70vh] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm lg:rounded-r-none lg:border-r-0">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                    {assignment.title}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">{assignment.exam.title}</p>
-                </div>
-                <div className="text-xs font-semibold text-[var(--muted)]">
-                  {answeredCount}/{sectionQuestions.length} answered
-                </div>
-              </div>
+        <div className="border-b border-dashed border-neutral-300 bg-white" />
 
-              <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text)]">
+        <main className="mx-auto grid h-[calc(100dvh-56px-44px)] max-w-6xl grid-cols-1 gap-0 px-4 py-4 lg:grid-cols-2">
+          {!leftHidden ? (
+            <section className="min-h-0 overflow-y-auto border border-neutral-200 bg-white p-6 lg:border-r-0">
+              <div className="space-y-5 text-[15px] leading-7 text-neutral-800">
                 {activeSectionId.startsWith("math") ? (
                   <div className="space-y-3">
-                    <p className="font-medium text-[var(--muted)]">Directions</p>
-                    <p className="whitespace-pre-wrap text-sm text-[var(--text)]">
-                      Solve each problem and select the best answer choice.
-                    </p>
-                    <p className="text-xs text-[var(--muted)]">
-                      (Reference sheet / calculator panel can be added here next.)
-                    </p>
+                    <p className="font-medium text-neutral-600">Directions</p>
+                    <p className="whitespace-pre-wrap">Solve each problem and select the best answer choice.</p>
                   </div>
                 ) : activePassage?.intros?.length ? (
                   <div className="space-y-2">
                     {activePassage.intros.map((line, idx) => (
-                      <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-[var(--muted)]">
+                      <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-neutral-600">
                         {line}
                       </p>
                     ))}
                   </div>
                 ) : null}
+
                 {!activeSectionId.startsWith("math") && activePassage?.text?.length ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {activePassage.text.map((para, idx) => (
                       <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
                         {para}
@@ -336,101 +309,109 @@ export default function DsatAssignmentPage() {
                     ))}
                   </div>
                 ) : !activeSectionId.startsWith("math") ? (
-                  <p className="text-[var(--muted)]">No passage configured for this question.</p>
+                  <p className="text-neutral-500">No passage configured for this question.</p>
                 ) : null}
               </div>
             </section>
           ) : null}
 
-          <section
-            className={`min-h-[70vh] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm ${
-              leftHidden ? "" : "lg:rounded-l-none"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--hover-strong)] text-xs font-bold text-[var(--text)]">
-                  {activeIndex + 1}
-                </span>
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--text)]">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(marked[activeQuestion.id])}
-                    onChange={(e) => setMarked((m) => ({ ...m, [activeQuestion.id]: e.target.checked }))}
-                    disabled={submitted}
-                  />
-                  Mark for Review
-                </label>
+          <section className="min-h-0 overflow-y-auto border border-neutral-200 bg-white p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-neutral-900 text-sm font-bold text-white">
+                {activeIndex + 1}
               </div>
-              <div className="text-xs font-semibold text-[var(--muted)] tabular-nums">
-                {activeIndex + 1} / {sectionQuestions.length}
-              </div>
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(marked[activeQuestion.id])}
+                  onChange={(e) => setMarked((m) => ({ ...m, [activeQuestion.id]: e.target.checked }))}
+                  disabled={submitted}
+                />
+                Mark for Review
+              </label>
             </div>
 
-            <div className="mt-4">
-              <p className="text-sm font-semibold text-[var(--text)]">
-                {"prompt" in activeQuestion ? activeQuestion.prompt : ""}
-              </p>
+            <div className="mt-5 text-[15px] leading-6 text-neutral-800">
+              <p className="font-medium">{"prompt" in activeQuestion ? activeQuestion.prompt : ""}</p>
 
               {activeQuestion.type === "mcq_single" ? (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-3">
                   {normalizeExamChoices(activeQuestion.choices as unknown).map((c, idx) => {
                     const checked = Number(selectedIndex) === idx;
                     const letter = String.fromCharCode(65 + idx);
                     return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        disabled={submitted}
-                        onClick={() => setAnswer(activeQuestion.id, idx)}
-                        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                          checked
-                            ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text)]"
-                            : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
-                        } ${submitted ? "opacity-90" : ""}`}
-                      >
-                        <span className="flex min-w-0 items-start gap-3">
-                          <span
-                            className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                              checked
-                                ? "bg-[var(--accent)] text-[var(--on-accent)]"
-                                : "bg-[var(--hover-strong)] text-[var(--text)]"
-                            }`}
-                          >
-                            {letter}
-                          </span>
-                          <span className="min-w-0">{choiceDisplayText(c)}</span>
-                        </span>
-                        <span className="text-xs font-semibold text-[var(--muted)]">{checked ? "✓" : ""}</span>
-                      </button>
+                      <div key={c.id} className="flex items-stretch gap-2">
+                        <button
+                          type="button"
+                          disabled={submitted}
+                          onClick={() => setAnswer(activeQuestion.id, idx)}
+                          className={`flex w-full items-center gap-3 rounded border px-4 py-3 text-left transition ${
+                            checked ? "border-neutral-900" : "border-neutral-300 hover:border-neutral-400"
+                          } ${submitted ? "opacity-90" : ""}`}
+                        >
+                          <span className="w-7 shrink-0 text-sm font-semibold text-neutral-700">{letter}:</span>
+                          <span className="min-w-0 flex-1">{choiceDisplayText(c)}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled
+                          aria-label="Eliminate choice"
+                          title="Eliminate"
+                          className="inline-flex w-10 items-center justify-center rounded border border-transparent text-neutral-400"
+                        >
+                          <EliminateIcon />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-[var(--muted)]">This DSAT view currently supports MCQ only.</p>
+                <p className="mt-4 text-sm text-neutral-500">This DSAT view currently supports MCQ only.</p>
               )}
             </div>
+          </section>
+        </main>
 
-            <div className="mt-6 flex items-center justify-between border-t border-[var(--border)] pt-4">
+        <footer className="h-11 border-t border-neutral-200 bg-white">
+          <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
+            <label className="inline-flex items-center gap-2 rounded bg-neutral-900 px-3 py-2 text-xs font-semibold text-white">
+              <span>
+                Question {activeIndex + 1} of {totalInModule}
+              </span>
+              <select
+                className="cursor-pointer bg-transparent text-xs font-semibold text-white outline-none"
+                value={activeIndex}
+                onChange={(e) => setActiveIndex(Number(e.target.value))}
+                disabled={submitted}
+              >
+                {sectionQuestions.map((q, i) => (
+                  <option key={q.id} value={i}>
+                    {i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => goto(-1)}
                 disabled={activeIndex === 0}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
+                className="h-9 rounded-full border border-neutral-300 bg-white px-6 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={() => goto(1)}
-                disabled={activeIndex === questions.length - 1}
-                className="rounded-xl bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                disabled={activeIndex >= sectionQuestions.length - 1}
+                className="h-9 rounded-full bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 Next
               </button>
             </div>
-          </section>
-        </main>
+          </div>
+        </footer>
       </div>
     </RoleGuard>
   );
