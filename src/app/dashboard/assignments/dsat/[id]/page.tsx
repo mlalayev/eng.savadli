@@ -205,6 +205,8 @@ export default function DsatAssignmentPage() {
   }
 
 
+  const activeQuestion = sectionQuestions[Math.min(activeIndex, Math.max(0, sectionQuestions.length - 1))];
+
   const passageId =
     assignment?.exam.structure?.questionPassageBySection?.[activeSectionId]?.[activeQuestion?.id ?? ""] ?? "";
   const activePassage =
@@ -213,11 +215,6 @@ export default function DsatAssignmentPage() {
     null;
 
   const selectedIndex = activeQuestion ? answersById.get(activeQuestion.id) : undefined;
-
-  const answeredCount = useMemo(
-    () => sectionQuestions.filter((q) => answersById.has(q.id)).length,
-    [sectionQuestions, answersById],
-  );
 
   function goto(delta: number) {
     setActiveIndex((i) => {
@@ -299,7 +296,7 @@ export default function DsatAssignmentPage() {
                   type="button"
                   disabled={submitted}
                   onClick={() => setAnswer(activeQuestion.id, idx)}
-                  className={`flex min-h-[48px] w-full items-center gap-3 rounded-md border bg-white px-4 py-3 text-left text-[15px] transition ${
+                  className={`flex min-h-[48px] w-full items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-[15px] transition ${
                     checked ? "ring-1 ring-black" : "hover:bg-neutral-50"
                   } ${struck ? "opacity-55" : ""} ${submitted ? "opacity-95" : ""}`}
                   style={{ borderColor: "#d1d1d1" }}
@@ -315,7 +312,7 @@ export default function DsatAssignmentPage() {
                   onClick={() => toggleCrossOut(idx)}
                   aria-label="Eliminate choice"
                   title="Eliminate"
-                  className="inline-flex w-10 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 disabled:opacity-40"
+                  className="inline-flex w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 disabled:opacity-40"
                 >
                   <SatEliminateIcon />
                 </button>
