@@ -104,7 +104,7 @@ export default function ExamsPage() {
     setError(null);
     setTemplateBusy(true);
     try {
-      await api<{ id: string; existed: boolean }>("/api/exams/templates/dsat-verbal", { method: "POST" });
+      await api<{ id: string; existed: boolean }>("/api/exams/templates/dsat-full", { method: "POST" });
       await fetchExams({ silent: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create template");
@@ -190,7 +190,7 @@ export default function ExamsPage() {
                   onClick={() => void createDsatTemplate()}
                   className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
                 >
-                  {templateBusy ? "Adding…" : "Add SAT template"}
+                  {templateBusy ? "Adding…" : "Add DSAT full template"}
                 </button>
                 <Link
                   href="/dashboard/exams/new"

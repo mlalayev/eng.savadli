@@ -14,6 +14,8 @@ export type DbUser = {
   email: string;
   /** Full display name (typically "FirstName Surname"). */
   name: string;
+  /** Optional avatar URL (stored in public/uploads). */
+  imageUrl?: string;
   firstName?: string;
   surname?: string;
   phone?: string;
@@ -67,6 +69,7 @@ export const authOptions: NextAuthOptions = {
           id: user._id.toHexString(),
           email: user.email,
           name: user.name,
+          image: user.imageUrl ?? null,
           role: user.role,
         };
       },
@@ -77,6 +80,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         const role = (user as unknown as { role?: ProfileRole }).role;
         if (role) token.role = role;
+        const name = (user as unknown as { name?: string | null }).name;
+        if (typeof name === "string") token.name = name;
+        const image = (user as unknown as { image?: string | null }).image;
+        if (typeof image === "string") token.picture = image;
       }
       return token;
     },
@@ -84,6 +91,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token.sub) {
         session.user.id = token.sub;
         session.user.role = token.role ?? "student";
+        if (typeof token.name === "string") session.user.name = token.name;
+        if (typeof token.picture === "string") session.user.image = token.picture;
       }
       return session;
     },

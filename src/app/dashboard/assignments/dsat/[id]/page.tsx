@@ -18,9 +18,10 @@ type Assignment = {
     mode: string;
     questions: ExamQuestion[];
     structure?: {
-      passages?: Array<{ id: string; intros?: string[]; text?: string[] }>;
-      questionPassage?: Record<string, string>;
-      timerSeconds?: number;
+      sections?: Array<{ id: string; label: string; kind: string }>;
+      passagesBySection?: Record<string, Array<{ id: string; intros?: string[]; text?: string[] }>>;
+      questionPassageBySection?: Record<string, Record<string, string>>;
+      timerSecondsBySection?: Record<string, number>;
     };
   };
 };
@@ -74,14 +75,43 @@ export default function DsatAssignmentPage() {
   const [marked, setMarked] = useState<Record<string, boolean>>({});
   const [leftHidden, setLeftHidden] = useState(false);
 
-  const timerSeed = assignment?.exam.structure?.timerSeconds ?? 31 * 60 + 14;
+  const sections = useMemo(() => {
+    const from = assignment?.exam.structure?.sections;
+    if (from && from.length) return from;
+    return [
+      { id: "rw1", label: "Reading & Writing 1", kind: "dsat_rw_1" },
+      { id: "rw2", label: "Reading & Writing 2", kind: "dsat_rw_2" },
+      { id: "math1", label: "Math 1", kind: "dsat_math_1" },
+      { id: "math2", label: "Math 2", kind: "dsat_math_2" },
+    ];
+  }, [assignment]);
+
+  const [activeSectionId, setActiveSectionId] = useState<string>(sections[0]?.id ?? "rw1");
+
+  const questionsBySection = useMemo(() => {
+    const grouped: Record<string, ExamQuestion[]> = {};
+    for (const s of sections) grouped[s.id] = [];
+    const fallback = sections[0]?.id ?? "rw1";
+    for (const q of assignment?.exam.questions ?? []) {
+      const sid = q.sectionId ?? fallback;
+      if (!grouped[sid]) grouped[sid] = [];
+      grouped[sid].push(q);
+    }
+    return grouped;
+  }, [assignment, sections]);
+
+  const sectionQuestions = questionsBySection[activeSectionId] ?? [];
+
+  const timerSeed =
+    assignment?.exam.structure?.timerSecondsBySection?.[activeSectionId] ??
+    (activeSectionId === "math1" || activeSectionId === "math2" ? 35 * 60 : 32 * 60);
   const [remaining, setRemaining] = useState<number>(timerSeed);
 
   const answersById = useMemo(() => new Map((attempt?.answers ?? []).map((a) => [a.questionId, a.value])), [attempt]);
 
   useEffect(() => {
     setRemaining(timerSeed);
-  }, [timerSeed]);
+  }, [timerSeed, activeSectionId]);
 
   async function loadAll() {
     setError(null);
@@ -159,26 +189,27 @@ export default function DsatAssignmentPage() {
   }
 
   const questions = assignment?.exam.questions ?? [];
-  const activeQuestion = questions[Math.min(activeIndex, Math.max(0, questions.length - 1))];
+  const activeQuestion = sectionQuestions[Math.min(activeIndex, Math.max(0, sectionQuestions.length - 1))];
 
-  const passageId = assignment?.exam.structure?.questionPassage?.[activeQuestion?.id ?? ""] ?? "";
+  const passageId =
+    assignment?.exam.structure?.questionPassageBySection?.[activeSectionId]?.[activeQuestion?.id ?? ""] ?? "";
   const activePassage =
-    (assignment?.exam.structure?.passages ?? []).find((p) => p.id === passageId) ??
-    (assignment?.exam.structure?.passages ?? [])[0] ??
+    (assignment?.exam.structure?.passagesBySection?.[activeSectionId] ?? []).find((p) => p.id === passageId) ??
+    (assignment?.exam.structure?.passagesBySection?.[activeSectionId] ?? [])[0] ??
     null;
 
   const selectedIndex = activeQuestion ? answersById.get(activeQuestion.id) : undefined;
 
   const answeredCount = useMemo(
-    () => questions.filter((q) => answersById.has(q.id)).length,
-    [questions, answersById],
+    () => sectionQuestions.filter((q) => answersById.has(q.id)).length,
+    [sectionQuestions, answersById],
   );
 
   function goto(delta: number) {
     setActiveIndex((i) => {
       const next = i + delta;
       if (next < 0) return 0;
-      if (next >= questions.length) return Math.max(0, questions.length - 1);
+      if (next >= sectionQuestions.length) return Math.max(0, sectionQuestions.length - 1);
       return next;
     });
   }
@@ -212,6 +243,24 @@ export default function DsatAssignmentPage() {
             </Link>
 
             <div className="flex items-center gap-3">
+              <label className="hidden items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--text)] sm:inline-flex">
+                Module
+                <select
+                  className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs font-semibold"
+                  value={activeSectionId}
+                  onChange={(e) => {
+                    setActiveSectionId(e.target.value);
+                    setActiveIndex(0);
+                  }}
+                  disabled={submitted}
+                >
+                  {sections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <span className="text-lg font-semibold tabular-nums text-[var(--text)]">{formatTime(remaining)}</span>
               <button
                 type="button"
@@ -254,12 +303,22 @@ export default function DsatAssignmentPage() {
                   <p className="mt-1 text-sm font-semibold text-[var(--text)]">{assignment.exam.title}</p>
                 </div>
                 <div className="text-xs font-semibold text-[var(--muted)]">
-                  {answeredCount}/{questions.length} answered
+                  {answeredCount}/{sectionQuestions.length} answered
                 </div>
               </div>
 
               <div className="mt-4 space-y-4 text-sm leading-6 text-[var(--text)]">
-                {activePassage?.intros?.length ? (
+                {activeSectionId.startsWith("math") ? (
+                  <div className="space-y-3">
+                    <p className="font-medium text-[var(--muted)]">Directions</p>
+                    <p className="whitespace-pre-wrap text-sm text-[var(--text)]">
+                      Solve each problem and select the best answer choice.
+                    </p>
+                    <p className="text-xs text-[var(--muted)]">
+                      (Reference sheet / calculator panel can be added here next.)
+                    </p>
+                  </div>
+                ) : activePassage?.intros?.length ? (
                   <div className="space-y-2">
                     {activePassage.intros.map((line, idx) => (
                       <p key={`${activePassage.id}_intro_${idx}`} className="font-medium text-[var(--muted)]">
@@ -268,7 +327,7 @@ export default function DsatAssignmentPage() {
                     ))}
                   </div>
                 ) : null}
-                {activePassage?.text?.length ? (
+                {!activeSectionId.startsWith("math") && activePassage?.text?.length ? (
                   <div className="space-y-3">
                     {activePassage.text.map((para, idx) => (
                       <p key={`${activePassage.id}_text_${idx}`} className="whitespace-pre-wrap">
@@ -276,9 +335,9 @@ export default function DsatAssignmentPage() {
                       </p>
                     ))}
                   </div>
-                ) : (
+                ) : !activeSectionId.startsWith("math") ? (
                   <p className="text-[var(--muted)]">No passage configured for this question.</p>
-                )}
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -304,7 +363,7 @@ export default function DsatAssignmentPage() {
                 </label>
               </div>
               <div className="text-xs font-semibold text-[var(--muted)] tabular-nums">
-                {activeIndex + 1} / {questions.length}
+                {activeIndex + 1} / {sectionQuestions.length}
               </div>
             </div>
 

@@ -6,6 +6,7 @@ export function publicUser(u: DbUser) {
     id: u._id.toHexString(),
     email: u.email,
     name: u.name,
+    imageUrl: u.imageUrl ?? "",
     firstName: u.firstName ?? "",
     surname: u.surname ?? "",
     phone: u.phone ?? "",
