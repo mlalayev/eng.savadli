@@ -91,6 +91,13 @@ export default function AssignmentDetailPage() {
     }
   }, [assignment, assignmentId]);
 
+  // Redirect DSAT exams to dedicated interface
+  useEffect(() => {
+    if (assignment && assignment.exam.program === "dsat" && typeof window !== "undefined") {
+      window.location.href = `/dashboard/assignments/dsat/${assignmentId}`;
+    }
+  }, [assignment, assignmentId]);
+
   function setAnswer(questionId: string, value: unknown) {
     setAttempt((prev) => {
       if (!prev) return prev;

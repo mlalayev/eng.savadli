@@ -82,6 +82,7 @@ export default function ExamsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
+  const [templateBusy, setTemplateBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [programFilter, setProgramFilter] = useState<ProgramFilter>("all");
 
@@ -98,6 +99,19 @@ export default function ExamsPage() {
       setRefreshing(false);
     }
   }, []);
+
+  async function createDsatTemplate() {
+    setError(null);
+    setTemplateBusy(true);
+    try {
+      await api<{ id: string; existed: boolean }>("/api/exams/templates/dsat-verbal", { method: "POST" });
+      await fetchExams({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create template");
+    } finally {
+      setTemplateBusy(false);
+    }
+  }
 
   useEffect(() => {
     void fetchExams();
@@ -170,6 +184,14 @@ export default function ExamsPage() {
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={templateBusy || initialLoad}
+                  onClick={() => void createDsatTemplate()}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-50"
+                >
+                  {templateBusy ? "Adding…" : "Add SAT template"}
+                </button>
                 <Link
                   href="/dashboard/exams/new"
                   className="inline-flex h-9 items-center justify-center rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]"
