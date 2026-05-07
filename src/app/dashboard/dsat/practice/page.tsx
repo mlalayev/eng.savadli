@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
-import { SatExamShell, SatQuestionNavButton } from "@/components/exams/sat-exam/sat-exam-shell";
-import { SatChevronDown, SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
+import { SatExamShell, type SatNavigatorItem } from "@/components/exams/sat-exam/sat-exam-shell";
+import { SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
 import { SatMathText } from "@/components/exams/sat-exam/sat-math-text";
 import { createSatFullTemplate, createSatVerbalTemplate } from "@/lib/exams/dsat-template";
 
@@ -71,9 +71,13 @@ function DsatPracticeContent() {
     return () => window.clearInterval(t);
   }, []);
 
-  const answeredCount = useMemo(
-    () => questions.filter((q) => selected[q.id] !== null && selected[q.id] !== undefined).length,
-    [questions, selected],
+  const navigatorItems: SatNavigatorItem[] = useMemo(
+    () =>
+      questions.map((q) => ({
+        answered: selected[q.id] !== null && selected[q.id] !== undefined,
+        marked: Boolean(marked[q.id]),
+      })),
+    [questions, selected, marked],
   );
 
   function goto(delta: number) {
@@ -116,9 +120,6 @@ function DsatPracticeContent() {
             ))}
           </div>
         ) : null}
-        <p className="text-[11px] font-medium tabular-nums text-neutral-500">
-          {answeredCount}/{questions.length} answered
-        </p>
       </div>
     ) : null;
 
@@ -137,7 +138,7 @@ function DsatPracticeContent() {
               <button
                 type="button"
                 onClick={() => setSelected((s) => ({ ...s, [activeQuestion.id]: idx }))}
-                className={`flex min-h-[48px] w-full items-center gap-3 rounded-md border bg-white px-4 py-3 text-left text-[15px] transition ${
+                className={`flex min-h-[48px] w-full items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-[15px] transition ${
                   checked ? "ring-1 ring-black" : "hover:bg-neutral-50"
                 } ${struck ? "opacity-55" : ""}`}
                 style={{ borderColor: "#d1d1d1" }}
@@ -152,7 +153,7 @@ function DsatPracticeContent() {
                 onClick={() => toggleCrossOut(idx)}
                 aria-label="Eliminate choice"
                 title="Eliminate"
-                className="inline-flex w-10 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                className="inline-flex w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
               >
                 <SatEliminateIcon />
               </button>
@@ -175,28 +176,12 @@ function DsatPracticeContent() {
         hideToggleLabel={isMath ? (timerHidden ? "Show" : "Hide") : leftHidden ? "Show" : "Hide"}
         showPassageColumn={!isMath && !leftHidden}
         passageColumn={passageNode}
-        sectionMetaLine={isMath ? "Section 2, Module 2:" : undefined}
-        sectionSubject={isMath ? "Math" : undefined}
+        moduleLabel={isMath ? "Math Module 2" : "Verbal Module 1"}
         questionNumber={activeIndex + 1}
         markedForReview={Boolean(marked[activeQuestion.id])}
         onToggleMark={() => setMarked((m) => ({ ...m, [activeQuestion.id]: !m[activeQuestion.id] }))}
-        footerQuestionNav={
-          <SatQuestionNavButton current={activeIndex + 1} total={questions.length}>
-            <select
-              className="max-w-[100px] cursor-pointer appearance-none bg-transparent pr-1 text-[13px] font-semibold text-white outline-none"
-              value={activeIndex}
-              onChange={(e) => setActiveIndex(Number(e.target.value))}
-              aria-label="Jump to question"
-            >
-              {questions.map((q, i) => (
-                <option key={q.id} value={i} className="bg-neutral-900 text-white">
-                  {i + 1}
-                </option>
-              ))}
-            </select>
-            <SatChevronDown className="h-3 w-3 shrink-0 text-white" />
-          </SatQuestionNavButton>
-        }
+        navigatorItems={navigatorItems}
+        onJumpTo={(idx) => setActiveIndex(idx)}
         onBack={() => goto(-1)}
         onNext={() => goto(1)}
         backDisabled={activeIndex === 0}

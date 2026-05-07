@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/components/dashboard/RoleGuard";
-import { SatExamShell, SatQuestionNavButton } from "@/components/exams/sat-exam/sat-exam-shell";
-import { SatChevronDown, SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
+import { SatExamShell, type SatNavigatorItem } from "@/components/exams/sat-exam/sat-exam-shell";
+import { SatEliminateIcon } from "@/components/exams/sat-exam/sat-icons";
 import { SatMathText } from "@/components/exams/sat-exam/sat-math-text";
 import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
 import type { ExamQuestion } from "@/lib/exams/types";
@@ -63,12 +63,12 @@ function formatTime(totalSeconds: number) {
   return `${mm}:${ss}`;
 }
 
-function dsatSectionRibbon(sectionId: string): { meta: string; subject: string } {
-  if (sectionId === "rw1") return { meta: "Section 1, Module 1:", subject: "Reading and Writing" };
-  if (sectionId === "rw2") return { meta: "Section 1, Module 2:", subject: "Reading and Writing" };
-  if (sectionId === "math1") return { meta: "Section 2, Module 1:", subject: "Math" };
-  if (sectionId === "math2") return { meta: "Section 2, Module 2:", subject: "Math" };
-  return { meta: "Section 1, Module 1:", subject: "Reading and Writing" };
+function dsatModuleLabel(sectionId: string): string {
+  if (sectionId === "rw1") return "Verbal Module 1";
+  if (sectionId === "rw2") return "Verbal Module 2";
+  if (sectionId === "math1") return "Math Module 1";
+  if (sectionId === "math2") return "Math Module 2";
+  return "Verbal Module 1";
 }
 
 export default function DsatAssignmentPage() {
@@ -234,11 +234,15 @@ export default function DsatAssignmentPage() {
   }
 
   const submitted = Boolean(attempt.submittedAt);
-  const totalInModule = sectionQuestions.length;
   const isMath = activeSectionId.startsWith("math");
-  const ribbon = dsatSectionRibbon(activeSectionId);
+  const moduleLabel = dsatModuleLabel(activeSectionId);
 
   const timeLabel = isMath && timerHidden ? "–:–" : formatTime(remaining);
+
+  const navigatorItems: SatNavigatorItem[] = sectionQuestions.map((q) => ({
+    answered: answersById.has(q.id),
+    marked: Boolean(marked[q.id]),
+  }));
 
   function toggleCrossOut(idx: number) {
     if (submitted) return;
@@ -337,8 +341,7 @@ export default function DsatAssignmentPage() {
         hideToggleLabel={isMath ? (timerHidden ? "Show" : "Hide") : leftHidden ? "Show" : "Hide"}
         showPassageColumn={!isMath && !leftHidden}
         passageColumn={passageNode}
-        sectionMetaLine={isMath ? ribbon.meta : undefined}
-        sectionSubject={isMath ? ribbon.subject : undefined}
+        moduleLabel={moduleLabel}
         questionNumber={activeIndex + 1}
         markedForReview={Boolean(marked[activeQuestion.id])}
         onToggleMark={() =>
@@ -353,24 +356,8 @@ export default function DsatAssignmentPage() {
             <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{error}</div>
           ) : undefined
         }
-        footerQuestionNav={
-          <SatQuestionNavButton current={activeIndex + 1} total={totalInModule}>
-            <select
-              className="max-w-[100px] cursor-pointer appearance-none bg-transparent pr-1 text-[13px] font-semibold text-white outline-none"
-              value={activeIndex}
-              onChange={(e) => setActiveIndex(Number(e.target.value))}
-              disabled={submitted}
-              aria-label="Jump to question"
-            >
-              {sectionQuestions.map((q, i) => (
-                <option key={q.id} value={i} className="bg-neutral-900 text-white">
-                  {i + 1}
-                </option>
-              ))}
-            </select>
-            <SatChevronDown className="h-3 w-3 shrink-0 text-white" />
-          </SatQuestionNavButton>
-        }
+        navigatorItems={navigatorItems}
+        onJumpTo={(idx) => setActiveIndex(idx)}
         onBack={() => goto(-1)}
         onNext={() => goto(1)}
         backDisabled={activeIndex === 0}
