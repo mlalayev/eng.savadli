@@ -25,6 +25,18 @@ export type DsatExamTemplate = {
   }>;
 };
 
+export type DsatVerbalQuestion = DsatChoiceQuestion & { passageId: string };
+
+export type DsatVerbalExamTemplate = {
+  id: string;
+  title: string;
+  durationSeconds: number;
+  verbal: {
+    passages: DsatPassage[];
+    questions: DsatVerbalQuestion[];
+  };
+};
+
 export function createSatFullTemplate(): DsatExamTemplate {
   const rw1PassageId = "rw1_notre_dame";
   const rw2PassageId = "rw2_renewables";
@@ -125,3 +137,29 @@ export function createSatFullTemplate(): DsatExamTemplate {
   };
 }
 
+export function createSatVerbalTemplate(): DsatVerbalExamTemplate {
+  const full = createSatFullTemplate();
+  const rw1 = full.modules.find((m) => m.id === "rw1");
+  if (!rw1) {
+    throw new Error("createSatVerbalTemplate: rw1 module missing from full template");
+  }
+
+  const passages = rw1.passages ?? [];
+  const questionPassage = rw1.questionPassage ?? {};
+  const fallbackPassageId = passages[0]?.id ?? "";
+
+  const questions: DsatVerbalQuestion[] = rw1.questions.map((q) => ({
+    ...q,
+    passageId: questionPassage[q.id] ?? fallbackPassageId,
+  }));
+
+  return {
+    id: "sat_template_verbal_01",
+    title: "Digital SAT · Reading & Writing (Template)",
+    durationSeconds: rw1.durationSeconds,
+    verbal: {
+      passages,
+      questions,
+    },
+  };
+}
