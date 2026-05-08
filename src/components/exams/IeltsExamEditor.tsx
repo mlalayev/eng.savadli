@@ -1,18 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { choiceDisplayText, normalizeExamChoices } from "@/lib/exams/choices";
-import type { ExamChoice, ExamQuestion, QuestionType } from "@/lib/exams/types";
-import type { Exam, IeltsGroup, IeltsMaterialsMap, IELTS_LISTENING_AUDIO_KEY } from "./shared/types";
+import type { ExamQuestion } from "@/lib/exams/types";
+import type { Exam, IeltsGroup, IeltsMaterialsMap } from "./shared/types";
 import { api, uploadImageFile, uploadAudioFile } from "./shared/api";
-import {
-  uid,
-  questionTypeLabel,
-  formatRichText,
-  emptyChoiceRow,
-  ieltsGroupForSectionId,
-  ieltsGroupLabel,
-} from "./shared/helpers";
+import { uid, ieltsGroupForSectionId, ieltsGroupLabel } from "./shared/helpers";
 import { ExamHeader } from "./shared/ExamHeader";
 import { parseHtmlInputs, countHtmlQuestions } from "@/lib/exams/html-parser";
 import { HtmlPreview } from "./HtmlPreview";
@@ -22,177 +14,173 @@ type IeltsExamEditorProps = {
   onUpdate: () => Promise<void>;
 };
 
-const IELTS_LISTENING_AUDIO_KEY_VALUE = "__ielts_listening_audio__";
+const LISTENING_AUDIO_KEY = "__ielts_listening_audio__";
+
+type HtmlQ = Extract<ExamQuestion, { type: "html_interactive" }>;
+type WritingQ = Extract<ExamQuestion, { type: "writing" }>;
 
 export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
   const [localQuestions, setLocalQuestions] = useState<ExamQuestion[]>(exam.questions);
+  const [ieltsMaterials, setIeltsMaterials] = useState<IeltsMaterialsMap>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState<string | null>(null);
 
-  // IELTS-specific state
   const [ieltsGroup, setIeltsGroup] = useState<IeltsGroup>("listening");
-  const [ieltsMaterials, setIeltsMaterials] = useState<IeltsMaterialsMap>({});
-  const [savingMaterials, setSavingMaterials] = useState(false);
+  const [sectionId, setSectionId] = useState<string>("");
 
-  // Section selection
-  const [sectionId, setSectionId] = useState<string>("drill");
-
-  // Add question form state
-  const [newType, setNewType] = useState<ExamQuestion["type"]>("mcq_single");
-  const [prompt, setPrompt] = useState("");
-  const [promptImageUrl, setPromptImageUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [richTextContent, setRichTextContent] = useState("");
-  const [points, setPoints] = useState(1);
-  const [choiceRows, setChoiceRows] = useState<ExamChoice[]>([
-    { ...emptyChoiceRow(), text: "" },
-    { ...emptyChoiceRow(), text: "" },
-    { ...emptyChoiceRow(), text: "" },
-    { ...emptyChoiceRow(), text: "" },
-  ]);
-  const [correctChoiceIndex, setCorrectChoiceIndex] = useState(0);
-  const [correctAnswer, setCorrectAnswer] = useState("");
-  const [correctNumber, setCorrectNumber] = useState<number>(0);
-  const [rubric, setRubric] = useState("");
-  const [imageUploadBusy, setImageUploadBusy] = useState<string | null>(null);
-
-  // HTML interactive question state
-  const [htmlContent, setHtmlContent] = useState("");
-  const [cssContent, setCssContent] = useState("");
-  const [htmlCorrectAnswers, setHtmlCorrectAnswers] = useState<Array<{ name: string; value: string; type: "text" | "radio" }>>([]);
-
-  // Edit question state
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editBuf, setEditBuf] = useState<ExamQuestion | null>(null);
-  const [editChoiceRows, setEditChoiceRows] = useState<ExamChoice[]>([]);
-  const [editCorrectChoiceIndex, setEditCorrectChoiceIndex] = useState(0);
-
-  const isIeltsFull = exam?.program === "ielts" && exam?.mode === "full" && Boolean(exam?.structure?.sections?.length);
-  const firstSectionId = exam?.structure?.sections?.[0]?.id ?? "";
-
-  // Auto-select first section if needed
+  // Sync local state with exam props (after save / reload)
   useEffect(() => {
-    const sections = exam?.structure?.sections;
-    if (!sections?.length) return;
-    setSectionId((prev) => (sections.some((s) => s.id === prev) ? prev : sections[0].id));
-  }, [exam?.id, exam?.structure]);
+    setLocalQuestions(exam.questions);
+  }, [exam.questions]);
 
-  // Load materials from structure
   useEffect(() => {
-    if (!exam?.structure) return;
-    const anyStructure = exam.structure as unknown as { materials?: IeltsMaterialsMap };
-    setIeltsMaterials(anyStructure.materials ?? {});
-  }, [exam?.id]);
+    const m =
+      (exam.structure as unknown as { materials?: IeltsMaterialsMap } | undefined)?.materials ?? {};
+    setIeltsMaterials(m);
+    // intentionally only depend on exam.id — refreshing the exam shouldn't blow away unsaved edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam.id]);
 
-  // Update group when section changes
+  const sections = exam.structure?.sections ?? [];
+  const groupSections = useMemo(
+    () => sections.filter((s) => ieltsGroupForSectionId(s.id) === ieltsGroup),
+    [sections, ieltsGroup],
+  );
+
+  // Auto-pick the first subsection whenever the group changes
   useEffect(() => {
-    if (!isIeltsFull) return;
-    const g = ieltsGroupForSectionId(sectionId);
-    if (g) setIeltsGroup(g);
-  }, [isIeltsFull, sectionId]);
+    if (groupSections.length === 0) return;
+    setSectionId((prev) => (groupSections.some((s) => s.id === prev) ? prev : groupSections[0].id));
+  }, [groupSections]);
 
-  const ieltsSections = useMemo(() => {
-    if (!isIeltsFull || !exam?.structure?.sections) return [];
-    return exam.structure.sections.filter((s) => ieltsGroupForSectionId(s.id) !== null);
-  }, [isIeltsFull, exam?.structure]);
+  const currentSection = sections.find((s) => s.id === sectionId);
+  const currentSectionLabel = currentSection?.label ?? "";
 
-  const ieltsSubsectionsByGroup = useMemo(() => {
-    const grouped: Record<IeltsGroup, typeof ieltsSections> = {
-      listening: [],
-      reading: [],
-      writing: [],
-      speaking: [],
-    };
-    for (const s of ieltsSections) {
-      const g = ieltsGroupForSectionId(s.id);
-      if (g) grouped[g].push(s);
+  // ---------- Derived counts / dirty / totals ----------
+  const totalPoints = useMemo(
+    () => localQuestions.reduce((sum, q) => sum + q.points, 0),
+    [localQuestions],
+  );
+
+  const initialMaterialsJson = useMemo(() => {
+    const initial =
+      (exam.structure as unknown as { materials?: IeltsMaterialsMap } | undefined)?.materials ?? {};
+    return JSON.stringify(initial);
+  }, [exam.id, exam.structure]);
+
+  const dirty = useMemo(() => {
+    const qChanged = JSON.stringify(localQuestions) !== JSON.stringify(exam.questions);
+    const mChanged = JSON.stringify(ieltsMaterials) !== initialMaterialsJson;
+    return qChanged || mChanged;
+  }, [localQuestions, exam.questions, ieltsMaterials, initialMaterialsJson]);
+
+  const sectionStatus = useMemo(() => {
+    const status: Record<string, { filled: boolean; count: number }> = {};
+    for (const s of sections) {
+      const group = ieltsGroupForSectionId(s.id);
+      const qs = localQuestions.filter((q) => q.sectionId === s.id);
+      if (group === "listening" || group === "reading") {
+        const html = qs.find((q) => q.type === "html_interactive") as HtmlQ | undefined;
+        status[s.id] = { filled: Boolean(html?.htmlContent?.trim()), count: html ? 1 : 0 };
+      } else if (group === "writing") {
+        const w = qs.find((q) => q.type === "writing") as WritingQ | undefined;
+        status[s.id] = { filled: Boolean(w?.prompt?.trim()), count: w ? 1 : 0 };
+      } else {
+        status[s.id] = { filled: qs.length > 0, count: qs.length };
+      }
     }
-    return grouped;
-  }, [ieltsSections]);
+    return status;
+  }, [sections, localQuestions]);
 
-  const ieltsActiveSubsections = isIeltsFull ? ieltsSubsectionsByGroup[ieltsGroup] : [];
-  const currentMaterial = ieltsMaterials[sectionId]?.text ?? "";
-  const listeningAudioUrl = ieltsMaterials[IELTS_LISTENING_AUDIO_KEY_VALUE]?.audioUrl ?? "";
+  // ---------- Mutators ----------
+  function getHtml(sid: string): HtmlQ | undefined {
+    return localQuestions.find(
+      (q) => q.sectionId === sid && q.type === "html_interactive",
+    ) as HtmlQ | undefined;
+  }
 
-  async function saveCurrentSectionMaterial() {
-    if (!exam || !exam.structure || !isIeltsFull) return;
-    setSavingMaterials(true);
+  function getWriting(sid: string): WritingQ | undefined {
+    return localQuestions.find((q) => q.sectionId === sid && q.type === "writing") as
+      | WritingQ
+      | undefined;
+  }
+
+  function upsertHtml(sid: string, patch: Partial<HtmlQ>) {
+    setLocalQuestions((prev) => {
+      const idx = prev.findIndex((q) => q.sectionId === sid && q.type === "html_interactive");
+      if (idx < 0) {
+        const created: HtmlQ = {
+          id: uid(),
+          sectionId: sid,
+          type: "html_interactive",
+          prompt: "",
+          htmlContent: "",
+          cssContent: undefined,
+          correctAnswers: [],
+          points: 1,
+          ...patch,
+        };
+        return [...prev, created];
+      }
+      const next = { ...(prev[idx] as HtmlQ), ...patch } as ExamQuestion;
+      return prev.map((q, i) => (i === idx ? next : q));
+    });
+  }
+
+  function upsertWriting(sid: string, patch: Partial<WritingQ>) {
+    setLocalQuestions((prev) => {
+      const idx = prev.findIndex((q) => q.sectionId === sid && q.type === "writing");
+      if (idx < 0) {
+        const created: WritingQ = {
+          id: uid(),
+          sectionId: sid,
+          type: "writing",
+          prompt: "",
+          points: 1,
+          ...patch,
+        };
+        return [...prev, created];
+      }
+      const next = { ...(prev[idx] as WritingQ), ...patch } as ExamQuestion;
+      return prev.map((q, i) => (i === idx ? next : q));
+    });
+  }
+
+  function addSpeakingQuestion(sid: string) {
+    const q: WritingQ = {
+      id: uid(),
+      sectionId: sid,
+      type: "writing",
+      prompt: "",
+      points: 1,
+    };
+    setLocalQuestions((prev) => [...prev, q]);
+  }
+
+  function updateQuestion(qid: string, patch: Partial<WritingQ>) {
+    setLocalQuestions((prev) =>
+      prev.map((q) => (q.id === qid ? ({ ...(q as WritingQ), ...patch } as ExamQuestion) : q)),
+    );
+  }
+
+  function removeQuestion(qid: string) {
+    setLocalQuestions((prev) => prev.filter((q) => q.id !== qid));
+  }
+
+  // ---------- API ----------
+  async function saveExam() {
+    setSaving(true);
     setError(null);
     try {
-      const structureAny = exam.structure as unknown;
+      const structureBase = (exam.structure as unknown as Record<string, unknown>) ?? {};
       await api(`/api/exams/${exam.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          structure: {
-            ...(structureAny as { program: string; mode: string; sections: unknown[] }),
-            materials: { ...(structureAny as { materials?: IeltsMaterialsMap }).materials, ...ieltsMaterials },
-          },
+          questions: localQuestions,
+          structure: { ...structureBase, materials: ieltsMaterials },
         }),
-      });
-      await onUpdate();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save materials");
-    } finally {
-      setSavingMaterials(false);
-    }
-  }
-
-  const allowedTypes: QuestionType[] = useMemo(() => {
-    if (exam.program === "ielts" && exam.mode === "full") {
-      if (sectionId.startsWith("writing_") || sectionId.startsWith("speaking_")) return ["writing"];
-      return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
-    }
-    if (exam.program === "ielts" && exam.mode === "drill") {
-      if (sectionId === "writing" || sectionId === "speaking") return ["writing"];
-      return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
-    }
-    return ["mcq_single", "short_text", "numeric", "rich_text", "html_interactive"];
-  }, [exam.program, exam.mode, sectionId]);
-
-  const totalPoints = useMemo(() => localQuestions.reduce((sum, q) => sum + q.points, 0), [localQuestions]);
-
-  const sectionQuestionCounts = useMemo(() => {
-    if (!exam?.structure?.sections?.length) return {} as Record<string, number>;
-    const fallback = exam.structure.sections[0]?.id ?? "";
-    const counts: Record<string, number> = {};
-    for (const s of exam.structure.sections) counts[s.id] = 0;
-    for (const q of localQuestions) {
-      const sid = q.sectionId ?? fallback;
-      if (Object.prototype.hasOwnProperty.call(counts, sid)) counts[sid]++;
-    }
-    return counts;
-  }, [exam, localQuestions]);
-
-  const questionsInCurrentSection = useMemo(() => {
-    if (!exam || !isIeltsFull || !exam.structure?.sections?.length) return localQuestions;
-    return localQuestions.filter((q) => (q.sectionId ?? firstSectionId) === sectionId);
-  }, [exam, isIeltsFull, firstSectionId, sectionId, localQuestions]);
-
-  const pointsInCurrentSection = useMemo(
-    () => questionsInCurrentSection.reduce((s, q) => s + q.points, 0),
-    [questionsInCurrentSection],
-  );
-
-  const dirty = useMemo(() => {
-    return JSON.stringify(localQuestions) !== JSON.stringify(exam.questions);
-  }, [exam.questions, localQuestions]);
-
-  function sectionLabelForQuestion(sectionIdValue: string | undefined): string {
-    if (!sectionIdValue || !exam?.structure?.sections?.length) return "";
-    const sec = exam.structure.sections.find((s) => s.id === sectionIdValue);
-    return sec?.label ?? sectionIdValue;
-  }
-
-  async function saveExam() {
-    if (!exam) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await api(`/api/exams/${exam.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ questions: localQuestions }),
       });
       await onUpdate();
     } catch (e) {
@@ -203,7 +191,6 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
   }
 
   async function toggleActive() {
-    if (!exam) return;
     setSaving(true);
     setError(null);
     try {
@@ -221,7 +208,7 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
   }
 
   async function deleteExam() {
-    if (!exam || !window.confirm("Delete this exam? This cannot be undone.")) return;
+    if (!window.confirm("Delete this exam? This cannot be undone.")) return;
     setSaving(true);
     setError(null);
     try {
@@ -233,144 +220,9 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
     }
   }
 
-  function addQuestion(e: React.FormEvent) {
-    e.preventDefault();
-    if (!exam) return;
-    setError(null);
-
-    const stemImage = promptImageUrl.trim() || undefined;
-    const desc = description.trim() || undefined;
-    const base = {
-      id: uid(),
-      sectionId: exam.structure?.sections?.length ? sectionId : undefined,
-      promptImageUrl: stemImage,
-      description: desc,
-      points: Math.max(1, Number(points) || 1),
-    };
-
-    let q: ExamQuestion;
-    if (newType === "mcq_single") {
-      const choices: ExamChoice[] = choiceRows
-        .map((row) => ({
-          id: row.id || uid(),
-          text: row.text.trim(),
-          imageUrl: row.imageUrl?.trim() || undefined,
-        }))
-        .filter((row) => row.text.length > 0 || Boolean(row.imageUrl));
-      if (choices.length < 2) {
-        setError("Add at least two answer choices (text and/or image each).");
-        return;
-      }
-      const safeIndex = Math.max(0, Math.min(correctChoiceIndex, choices.length - 1));
-      q = { ...base, type: "mcq_single", prompt: prompt.trim(), choices, correctChoiceIndex: safeIndex };
-    } else if (newType === "short_text") {
-      q = { ...base, type: "short_text", prompt: prompt.trim(), correctAnswer: correctAnswer.trim() };
-    } else if (newType === "numeric") {
-      q = { ...base, type: "numeric", prompt: prompt.trim(), correctNumber: Number(correctNumber) };
-    } else if (newType === "rich_text") {
-      if (!richTextContent.trim()) {
-        setError("Rich text content is required.");
-        return;
-      }
-      q = { ...base, type: "rich_text", content: richTextContent.trim() };
-    } else if (newType === "html_interactive") {
-      if (!htmlContent.trim()) {
-        setError("HTML content is required.");
-        return;
-      }
-      if (htmlCorrectAnswers.length === 0) {
-        setError("Configure at least one correct answer for the HTML inputs.");
-        return;
-      }
-      q = {
-        ...base,
-        type: "html_interactive",
-        prompt: prompt.trim(),
-        htmlContent: htmlContent.trim(),
-        cssContent: cssContent.trim() || undefined,
-        correctAnswers: htmlCorrectAnswers,
-      };
-    } else {
-      q = { ...base, type: "writing", prompt: prompt.trim(), rubric: rubric.trim() || undefined };
-    }
-
-    setLocalQuestions((prev) => [...prev, q]);
-    setPrompt("");
-    setPromptImageUrl("");
-    setDescription("");
-    setRichTextContent("");
-    setHtmlContent("");
-    setCssContent("");
-    setHtmlCorrectAnswers([]);
-    setChoiceRows([
-      { ...emptyChoiceRow(), text: "" },
-      { ...emptyChoiceRow(), text: "" },
-      { ...emptyChoiceRow(), text: "" },
-      { ...emptyChoiceRow(), text: "" },
-    ]);
-    setCorrectChoiceIndex(0);
-    setCorrectAnswer("");
-    setCorrectNumber(0);
-    setRubric("");
-  }
-
-  function removeQuestionLocal(questionId: string) {
-    setLocalQuestions((prev) => prev.filter((q) => q.id !== questionId));
-    if (editingId === questionId) {
-      setEditingId(null);
-      setEditBuf(null);
-    }
-  }
-
-  function startEdit(q: ExamQuestion) {
-    setEditingId(q.id);
-    setEditBuf(structuredClone(q));
-    if (q.type === "mcq_single") {
-      setEditChoiceRows(q.choices.length ? q.choices.map((c) => ({ ...c })) : [emptyChoiceRow(), emptyChoiceRow()]);
-      setEditCorrectChoiceIndex(q.correctChoiceIndex);
-    } else {
-      setEditChoiceRows([]);
-      setEditCorrectChoiceIndex(0);
-    }
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditBuf(null);
-    setEditChoiceRows([]);
-  }
-
-  function applyEdit() {
-    if (!editBuf || !editingId || !exam) return;
-    setError(null);
-
-    let next: ExamQuestion = editBuf;
-
-    if (editBuf.type === "mcq_single") {
-      const choices: ExamChoice[] = editChoiceRows
-        .map((row) => ({
-          id: row.id || uid(),
-          text: row.text.trim(),
-          imageUrl: row.imageUrl?.trim() || undefined,
-        }))
-        .filter((row) => row.text.length > 0 || Boolean(row.imageUrl));
-      if (choices.length < 2) {
-        setError("Edit: add at least two answer choices.");
-        return;
-      }
-      const safeIndex = Math.max(0, Math.min(editCorrectChoiceIndex, choices.length - 1));
-      next = { ...editBuf, choices, correctChoiceIndex: safeIndex };
-    }
-
-    setLocalQuestions((prev) => prev.map((x) => (x.id === editingId ? next : x)));
-    cancelEdit();
-  }
-
-  const currentSectionLabel = exam?.structure?.sections?.find((s) => s.id === sectionId)?.label ?? "Section";
-  const currentSection = exam?.structure?.sections?.find((s) => s.id === sectionId);
-
+  // ---------- Render ----------
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <ExamHeader
         exam={exam}
         totalQuestions={localQuestions.length}
@@ -383,1010 +235,752 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
       />
 
       {error ? (
-        <p className="rounded-xl border border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-3 text-sm text-[var(--error-text)]">
+        <p
+          role="alert"
+          className="rounded-xl border border-[var(--error-border)] bg-[var(--error-surface)] px-4 py-3 text-sm text-[var(--error-text)]"
+        >
           {error}
         </p>
       ) : null}
 
-      {/* IELTS section/subsection navigation */}
-      {isIeltsFull ? (
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">IELTS sections</p>
-            <p className="text-sm text-[var(--muted)]">
-              Pick a section and subsection. New questions will be added to the selected subsection.
-            </p>
-          </div>
+      <SectionNav
+        ieltsGroup={ieltsGroup}
+        setIeltsGroup={setIeltsGroup}
+        groupSections={groupSections}
+        sectionId={sectionId}
+        setSectionId={setSectionId}
+        sectionStatus={sectionStatus}
+      />
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-12">
-            <div className="lg:col-span-4">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--faint)]">Section</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {(["listening", "reading", "writing", "speaking"] as const).map((g) => {
-                    const on = ieltsGroup === g;
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => {
-                          setIeltsGroup(g);
-                          const first = ieltsSubsectionsByGroup[g][0]?.id;
-                          if (first) setSectionId(first);
-                        }}
-                        className={`inline-flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-semibold transition ${
-                          on
-                            ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
-                            : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)]"
-                        }`}
-                      >
-                        {ieltsGroupLabel(g)}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--faint)]">Subsection</p>
-                  <div className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
-                    {ieltsActiveSubsections.map((s) => {
-                      const on = sectionId === s.id;
-                      const count = sectionQuestionCounts[s.id] ?? 0;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setSectionId(s.id)}
-                          className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition ${
-                            on
-                              ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
-                              : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)]"
-                          }`}
-                        >
-                          <span className="min-w-0 truncate">{s.label}</span>
-                          <span className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--background)] px-2 py-0.5 text-xs font-semibold text-[var(--muted)]">
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                    {ieltsActiveSubsections.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">No subsections found.</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-8">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                      {currentSection?.label ?? "Section material"}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">Add the passage / script / prompt for this subsection.</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={saving || savingMaterials}
-                    onClick={() => void saveCurrentSectionMaterial()}
-                    className="inline-flex h-9 items-center justify-center rounded-lg bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                  >
-                    {savingMaterials ? "Saving…" : "Save"}
-                  </button>
-                </div>
-
-                <textarea
-                  className="mt-3 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={currentMaterial}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setIeltsMaterials((prev) => ({
-                      ...prev,
-                      [sectionId]: { ...(prev[sectionId] ?? {}), text: v },
-                    }));
-                  }}
-                  placeholder={
-                    ieltsGroup === "reading"
-                      ? "Paste the Reading passage here…"
-                      : ieltsGroup === "listening"
-                        ? "Paste the Listening script / notes here…"
-                        : ieltsGroup === "writing"
-                          ? "Paste the Writing task prompt here…"
-                          : "Paste the Speaking prompts / bullet points here…"
-                  }
-                />
-
-                <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Formatting help</p>
-                  <div className="mt-2 space-y-1 text-xs text-[var(--muted)]">
-                    <p>
-                      New lines work normally: <span className="font-semibold text-[var(--text)]">Enter</span> = new line, blank
-                      line = extra spacing.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[var(--text)]">**bold**</span> → bold
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[var(--text)]">__italic__</span> → italic
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[var(--text)]">~underline~</span> → underline
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[var(--text)]">~~strikethrough~~</span> → crossed out
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[var(--text)]">[title] My Title [title]</span> → passage title
-                    </p>
-                  </div>
-                </div>
-
-                {ieltsGroup === "listening" ? (
-                  <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Listening audio</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
-                      One audio for the whole Listening section (shared across Sections 1–4).
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          className="sr-only"
-                          disabled={Boolean(imageUploadBusy) || savingMaterials || saving}
-                          onChange={(e) => {
-                            const input = e.currentTarget;
-                            const file = input.files?.[0];
-                            input.value = "";
-                            if (!file) return;
-                            setError(null);
-                            setImageUploadBusy(`audio:${IELTS_LISTENING_AUDIO_KEY_VALUE}`);
-                            void uploadAudioFile(file)
-                              .then((url) =>
-                                setIeltsMaterials((prev) => ({
-                                  ...prev,
-                                  [IELTS_LISTENING_AUDIO_KEY_VALUE]: {
-                                    ...(prev[IELTS_LISTENING_AUDIO_KEY_VALUE] ?? {}),
-                                    audioUrl: url,
-                                  },
-                                })),
-                              )
-                              .catch((err) => setError(err instanceof Error ? err.message : "Upload failed"))
-                              .finally(() => setImageUploadBusy(null));
-                          }}
-                        />
-                        {imageUploadBusy === `audio:${IELTS_LISTENING_AUDIO_KEY_VALUE}` ? "Uploading…" : "Choose file"}
-                      </label>
-                      <span className="text-xs text-[var(--muted)]">or</span>
-                      <input
-                        className="min-w-[14rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
-                        type="text"
-                        placeholder="/uploads/… or https://…"
-                        value={listeningAudioUrl}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          setIeltsMaterials((prev) => ({
-                            ...prev,
-                            [IELTS_LISTENING_AUDIO_KEY_VALUE]: {
-                              ...(prev[IELTS_LISTENING_AUDIO_KEY_VALUE] ?? {}),
-                              audioUrl: url,
-                            },
-                          }));
-                        }}
-                      />
-                    </div>
-
-                    {listeningAudioUrl.trim() ? (
-                      <audio className="mt-3 w-full" controls src={listeningAudioUrl.trim()} />
-                    ) : (
-                      <p className="mt-3 text-xs text-[var(--muted)]">No audio attached yet.</p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
+      {(ieltsGroup === "listening" || ieltsGroup === "reading") && currentSection ? (
+        <HtmlSectionPanel
+          group={ieltsGroup}
+          sectionId={sectionId}
+          sectionLabel={currentSectionLabel}
+          materialText={ieltsMaterials[sectionId]?.text ?? ""}
+          onMaterialTextChange={(text) =>
+            setIeltsMaterials((prev) => ({
+              ...prev,
+              [sectionId]: { ...(prev[sectionId] ?? {}), text },
+            }))
+          }
+          listeningAudioUrl={ieltsMaterials[LISTENING_AUDIO_KEY]?.audioUrl ?? ""}
+          onListeningAudioUrlChange={(url) =>
+            setIeltsMaterials((prev) => ({
+              ...prev,
+              [LISTENING_AUDIO_KEY]: { ...(prev[LISTENING_AUDIO_KEY] ?? {}), audioUrl: url },
+            }))
+          }
+          html={getHtml(sectionId)}
+          onHtmlPatch={(patch) => upsertHtml(sectionId, patch)}
+          uploadBusy={uploadBusy}
+          setUploadBusy={setUploadBusy}
+          onError={(msg) => setError(msg)}
+        />
       ) : null}
 
-      {/* Add question form */}
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-[var(--text)]">Add question</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {exam?.structure?.sections?.length ? (
-                <>
-                  New question goes to <span className="font-semibold text-[var(--text)]">{currentSectionLabel}</span>. Add
-                  it to the list, then click <span className="font-semibold text-[var(--text)]">Save exam</span> to store it.
-                </>
+      {ieltsGroup === "writing" && currentSection ? (
+        <WritingTaskPanel
+          sectionId={sectionId}
+          sectionLabel={currentSectionLabel}
+          writing={getWriting(sectionId)}
+          onWritingPatch={(patch) => upsertWriting(sectionId, patch)}
+          uploadBusy={uploadBusy}
+          setUploadBusy={setUploadBusy}
+          onError={(msg) => setError(msg)}
+        />
+      ) : null}
+
+      {ieltsGroup === "speaking" && currentSection ? (
+        <SpeakingPartPanel
+          sectionId={sectionId}
+          sectionLabel={currentSectionLabel}
+          questions={localQuestions.filter(
+            (q) => q.sectionId === sectionId && q.type === "writing",
+          ) as WritingQ[]}
+          onAdd={() => addSpeakingQuestion(sectionId)}
+          onUpdate={(qid, patch) => updateQuestion(qid, patch)}
+          onRemove={(qid) => removeQuestion(qid)}
+          uploadBusy={uploadBusy}
+          setUploadBusy={setUploadBusy}
+          onError={(msg) => setError(msg)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/* =========================
+   Section navigator
+   ========================= */
+
+function SectionNav({
+  ieltsGroup,
+  setIeltsGroup,
+  groupSections,
+  sectionId,
+  setSectionId,
+  sectionStatus,
+}: {
+  ieltsGroup: IeltsGroup;
+  setIeltsGroup: (g: IeltsGroup) => void;
+  groupSections: { id: string; label: string }[];
+  sectionId: string;
+  setSectionId: (sid: string) => void;
+  sectionStatus: Record<string, { filled: boolean; count: number }>;
+}) {
+  const groups: IeltsGroup[] = ["listening", "reading", "writing", "speaking"];
+
+  const groupHelp: Record<IeltsGroup, string> = {
+    listening: "4 sections · one HTML/CSS question per section · one shared audio file",
+    reading: "3 passages · one HTML/CSS question per passage",
+    writing: "2 tasks · prompt + optional image attachment per task",
+    speaking: "3 parts · add as many prompts as you like per part",
+  };
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+          IELTS sections
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{groupHelp[ieltsGroup]}</p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {groups.map((g) => {
+          const on = ieltsGroup === g;
+          return (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setIeltsGroup(g)}
+              className={`inline-flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition ${
+                on
+                  ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              {ieltsGroupLabel(g)}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {groupSections.map((s) => {
+          const on = sectionId === s.id;
+          const status = sectionStatus[s.id] ?? { filled: false, count: 0 };
+          const shortLabel = shortSubsectionLabel(s.label);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setSectionId(s.id)}
+              className={`inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-semibold transition ${
+                on
+                  ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
+              }`}
+            >
+              <span>{shortLabel}</span>
+              {ieltsGroup === "speaking" ? (
+                <span
+                  className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                    status.count > 0
+                      ? "bg-[var(--accent)] text-[var(--on-accent)]"
+                      : "bg-[var(--border)] text-[var(--muted)]"
+                  }`}
+                >
+                  {status.count}
+                </span>
               ) : (
-                <>
-                  Add a question below, then click <span className="font-semibold text-[var(--text)]">Save exam</span> to
-                  store it.
-                </>
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    status.filled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+                  }`}
+                />
               )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function shortSubsectionLabel(full: string): string {
+  // "Listening · Section 1" -> "Section 1"
+  const dot = full.indexOf("·");
+  return dot >= 0 ? full.slice(dot + 1).trim() : full;
+}
+
+/* =========================
+   Listening / Reading panel
+   ========================= */
+
+function HtmlSectionPanel({
+  group,
+  sectionId,
+  sectionLabel,
+  materialText,
+  onMaterialTextChange,
+  listeningAudioUrl,
+  onListeningAudioUrlChange,
+  html,
+  onHtmlPatch,
+  uploadBusy,
+  setUploadBusy,
+  onError,
+}: {
+  group: "listening" | "reading";
+  sectionId: string;
+  sectionLabel: string;
+  materialText: string;
+  onMaterialTextChange: (text: string) => void;
+  listeningAudioUrl: string;
+  onListeningAudioUrlChange: (url: string) => void;
+  html: HtmlQ | undefined;
+  onHtmlPatch: (patch: Partial<HtmlQ>) => void;
+  uploadBusy: string | null;
+  setUploadBusy: (key: string | null) => void;
+  onError: (msg: string) => void;
+}) {
+  const detected = useMemo(
+    () => parseHtmlInputs(html?.htmlContent ?? ""),
+    [html?.htmlContent],
+  );
+  const correctAnswers = html?.correctAnswers ?? [];
+
+  return (
+    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+          {sectionLabel}
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          {group === "listening"
+            ? "Add the listening script / notes (optional) and write the section's HTML/CSS. The audio file below is shared across all four listening sections."
+            : "Paste the reading passage and write the section's HTML/CSS. Only one HTML question lives in this passage."}
+        </p>
+      </div>
+
+      {/* Passage / script */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+        <label className="block text-sm font-semibold text-[var(--text)]">
+          {group === "reading" ? "Passage" : "Script / notes (optional)"}
+          <textarea
+            key={`material-${sectionId}`}
+            className="mt-2 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+            value={materialText}
+            onChange={(e) => onMaterialTextChange(e.target.value)}
+            placeholder={
+              group === "reading"
+                ? "Paste the reading passage here…"
+                : "Paste the listening script / notes here (optional — students don't see it during the test unless you display it)."
+            }
+          />
+        </label>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Formatting: <span className="font-semibold text-[var(--text)]">**bold**</span>,{" "}
+          <span className="font-semibold text-[var(--text)]">__italic__</span>,{" "}
+          <span className="font-semibold text-[var(--text)]">~underline~</span>,{" "}
+          <span className="font-semibold text-[var(--text)]">~~strikethrough~~</span>,{" "}
+          <span className="font-semibold text-[var(--text)]">[title] … [title]</span>.
+        </p>
+      </div>
+
+      {/* Listening audio (shared) */}
+      {group === "listening" ? (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+            Listening audio (shared across Sections 1–4)
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
+              <input
+                type="file"
+                accept="audio/*"
+                className="sr-only"
+                disabled={Boolean(uploadBusy)}
+                onChange={(e) => {
+                  const input = e.currentTarget;
+                  const file = input.files?.[0];
+                  input.value = "";
+                  if (!file) return;
+                  setUploadBusy("listening_audio");
+                  void uploadAudioFile(file)
+                    .then((url) => onListeningAudioUrlChange(url))
+                    .catch((err) =>
+                      onError(err instanceof Error ? err.message : "Upload failed"),
+                    )
+                    .finally(() => setUploadBusy(null));
+                }}
+              />
+              {uploadBusy === "listening_audio" ? "Uploading…" : "Choose file"}
+            </label>
+            <span className="text-xs text-[var(--muted)]">or</span>
+            <input
+              className="min-w-[16rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              type="text"
+              placeholder="/uploads/… or https://…"
+              value={listeningAudioUrl}
+              onChange={(e) => onListeningAudioUrlChange(e.target.value)}
+            />
+          </div>
+          {listeningAudioUrl.trim() ? (
+            <audio className="mt-3 w-full" controls src={listeningAudioUrl.trim()} />
+          ) : (
+            <p className="mt-3 text-xs text-[var(--muted)]">No audio attached yet.</p>
+          )}
+        </div>
+      ) : null}
+
+      {/* HTML / CSS editor */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[var(--text)]">Question (HTML / CSS)</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Use <code className="rounded bg-[var(--surface)] px-1 py-0.5">{`<input type="text" name="q1"/>`}</code>{" "}
+              or <code className="rounded bg-[var(--surface)] px-1 py-0.5">{`<input type="radio" name="q2" value="a"/>`}</code>.
+              Each unique <span className="font-semibold text-[var(--text)]">name</span> = one sub-question.
             </p>
           </div>
-          {exam?.structure?.sections?.length ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-                Target: {currentSectionLabel}
-              </span>
-              {isIeltsFull ? (
-                <span className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-                  IELTS · {ieltsGroupLabel(ieltsGroup)}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+            {countHtmlQuestions(html?.htmlContent ?? "")} sub-questions
+          </span>
         </div>
 
-        <form className="mt-5 space-y-5" onSubmit={addQuestion}>
-          {/* Step 1: Question Type Selector */}
-          <div className="rounded-xl border-2 border-[var(--accent)]/30 bg-[var(--accent-soft)] p-5">
-            <p className="text-sm font-semibold text-[var(--accent)]">Step 1: Choose Question Type</p>
-            <select
-              className="mt-3 block h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-sm font-medium"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as ExamQuestion["type"])}
+        <label className="mt-4 block text-sm font-medium text-[var(--text)]">
+          Prompt / instructions (shown above the HTML)
+          <textarea
+            className="mt-1.5 block min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+            value={html?.prompt ?? ""}
+            onChange={(e) => onHtmlPatch({ prompt: e.target.value })}
+            placeholder="e.g. Questions 1–10. Complete the notes below."
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-[var(--text)]">
+          HTML
+          <textarea
+            className="mt-1.5 block min-h-72 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
+            value={html?.htmlContent ?? ""}
+            onChange={(e) => onHtmlPatch({ htmlContent: e.target.value })}
+            placeholder='<p>1. The course starts on <input type="text" name="q1"/></p>'
+            spellCheck={false}
+          />
+        </label>
+
+        <label className="mt-4 block text-sm font-medium text-[var(--text)]">
+          CSS (optional)
+          <textarea
+            className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
+            value={html?.cssContent ?? ""}
+            onChange={(e) =>
+              onHtmlPatch({ cssContent: e.target.value.length ? e.target.value : undefined })
+            }
+            placeholder="p { margin: 8px 0; }"
+            spellCheck={false}
+          />
+        </label>
+
+        {(html?.htmlContent ?? "").trim() ? (
+          <div className="mt-4">
+            <HtmlPreview
+              htmlContent={html?.htmlContent ?? ""}
+              cssContent={html?.cssContent ?? ""}
+              showQuestionCount
+              questionCount={countHtmlQuestions(html?.htmlContent ?? "")}
+            />
+          </div>
+        ) : null}
+
+        <CorrectAnswersConfig
+          detected={detected}
+          answers={correctAnswers}
+          onChange={(next) => onHtmlPatch({ correctAnswers: next })}
+        />
+
+        <label className="mt-4 block text-sm font-medium text-[var(--text)] sm:max-w-[12rem]">
+          Points
+          <input
+            className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+            type="number"
+            min={1}
+            value={html?.points ?? 1}
+            onChange={(e) => onHtmlPatch({ points: Math.max(1, Number(e.target.value) || 1) })}
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function CorrectAnswersConfig({
+  detected,
+  answers,
+  onChange,
+}: {
+  detected: ReturnType<typeof parseHtmlInputs>;
+  answers: HtmlQ["correctAnswers"];
+  onChange: (next: HtmlQ["correctAnswers"]) => void;
+}) {
+  if (detected.length === 0) {
+    return (
+      <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-4">
+        <p className="text-xs text-[var(--muted)]">
+          Add inputs to your HTML to configure correct answers here.
+        </p>
+      </div>
+    );
+  }
+
+  function setAnswer(name: string, value: string, type: "text" | "radio") {
+    const next = answers.filter((a) => a.name !== name);
+    if (value.trim().length > 0) next.push({ name, value, type });
+    onChange(next);
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--text)]">Correct answers</p>
+        <span className="rounded-full border border-[var(--border)] bg-[var(--background)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+          {answers.length}/{detected.length} set
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-[var(--muted)]">
+        For text inputs, use <span className="font-semibold text-[var(--text)]">|</span> to allow
+        multiple acceptable answers (case-insensitive).
+      </p>
+      <div className="mt-3 space-y-2.5">
+        {detected.map((input) => {
+          const existing = answers.find((a) => a.name === input.name);
+          return (
+            <div
+              key={input.name}
+              className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3"
             >
-              {allowedTypes.map((t) => (
-                <option key={t} value={t}>
-                  {questionTypeLabel(t)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Step 2: Question Type Instructions & Form Fields */}
-          {newType === "mcq_single" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Multiple Choice Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Create a question with multiple answer choices. Students select one correct answer.
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {newType === "short_text" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Short Answer Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Students type a short text answer. Graded automatically (case-insensitive). Supports multiple correct answers separated by <span className="font-semibold text-[var(--text)]">|</span> (e.g., "strict quarantine|quarantine").
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {newType === "numeric" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Numeric Answer Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Students enter a number. Graded automatically (exact numeric match).
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {newType === "writing" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Writing Task Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Students write an essay or long-form response. Requires manual grading by teacher.
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {newType === "rich_text" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Rich Text Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Display formatted text with **bold**, __italic__, ~underline~, ~~strikethrough~~, [title] markers. No student input required.
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Rich text content
-                <textarea
-                  className="mt-1.5 block min-h-48 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono"
-                  value={richTextContent}
-                  onChange={(e) => setRichTextContent(e.target.value)}
-                  placeholder="Use **text** for bold, __text__ for italic, ~text~ for underline, ~~text~~ for strikethrough, [title]text[title] for titles"
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          {newType === "html_interactive" ? (
-            <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
-              <div className="rounded-lg bg-[var(--accent-soft)]/30 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">HTML Interactive Instructions</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Create custom HTML with &lt;input type="text" name="q1"/&gt; or &lt;input type="radio" name="q2" value="a"/&gt;. Each unique name = 1 question.
-                </p>
-              </div>
-              
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt / Instructions
-                <textarea
-                  className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Instructions shown above the interactive HTML"
-                  required
-                />
-              </label>
-
-              <label className="block text-sm font-medium text-[var(--text)]">
-                HTML Content
-                <textarea
-                  className="mt-1.5 block min-h-64 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
-                  value={htmlContent}
-                  onChange={(e) => setHtmlContent(e.target.value)}
-                  placeholder='<p>Question 1: <input type="text" name="q1"/></p>'
-                  required
-                />
-              </label>
-
-              <label className="block text-sm font-medium text-[var(--text)]">
-                CSS Styling (optional)
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 font-mono text-sm"
-                  value={cssContent}
-                  onChange={(e) => setCssContent(e.target.value)}
-                  placeholder="p { margin: 10px 0; }"
-                />
-              </label>
-
-              {/* HTML Preview */}
-              {htmlContent.trim() ? (
-                <HtmlPreview
-                  htmlContent={htmlContent}
-                  cssContent={cssContent}
-                  showQuestionCount={true}
-                  questionCount={countHtmlQuestions(htmlContent)}
-                />
-              ) : null}
-
-              {/* Configure Correct Answers */}
-              {(() => {
-                const detectedInputs = parseHtmlInputs(htmlContent);
-                if (detectedInputs.length === 0) return null;
-
-                return (
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-                    <p className="text-sm font-semibold text-[var(--text)]">Configure Correct Answers</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
-                      Detected {detectedInputs.length} input{detectedInputs.length === 1 ? "" : "s"}. Set the correct answer for each.
-                    </p>
-                    <div className="mt-3 space-y-3">
-                      {detectedInputs.map((input) => {
-                        const existing = htmlCorrectAnswers.find((a) => a.name === input.name);
-                        return (
-                          <div key={input.name} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                              {input.name} ({input.type})
-                            </p>
-                            {input.type === "text" ? (
-                              <input
-                                className="mt-2 block w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
-                                type="text"
-                                value={existing?.value ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setHtmlCorrectAnswers((prev) => {
-                                    const next = prev.filter((a) => a.name !== input.name);
-                                    if (val.trim()) next.push({ name: input.name, value: val, type: "text" });
-                                    return next;
-                                  });
-                                }}
-                                placeholder="Correct answer"
-                              />
-                            ) : input.type === "radio" && input.radioValues ? (
-                              <div className="mt-2 space-y-1">
-                                {input.radioValues.map((v) => (
-                                  <label key={v} className="flex items-center gap-2 text-sm">
-                                    <input
-                                      type="radio"
-                                      name={`correct_${input.name}`}
-                                      checked={existing?.value === v}
-                                      onChange={() => {
-                                        setHtmlCorrectAnswers((prev) => {
-                                          const next = prev.filter((a) => a.name !== input.name);
-                                          next.push({ name: input.name, value: v, type: "radio" });
-                                          return next;
-                                        });
-                                      }}
-                                    />
-                                    <span className="text-[var(--text)]">{v}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="mt-2 text-xs text-[var(--muted)]">
-                                Radio buttons detected but no value attributes found. Add value="..." to each option.
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          ) : null}
-
-          {/* Common fields for non-rich-text types */}
-          {newType !== "rich_text" && newType !== "html_interactive" ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Prompt
-                <textarea
-                  className="mt-1.5 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          ) : null}
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-            <label className="block text-sm font-medium text-[var(--text)]">
-              Description / Context (optional)
-              <textarea
-                className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add instructions or context for the question"
-              />
-            </label>
-            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-              <p className="text-xs font-semibold text-[var(--faint)]">Formatting help</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Use <span className="font-semibold text-[var(--text)]">**bold**</span>,{" "}
-                <span className="font-semibold text-[var(--text)]">__italic__</span>,{" "}
-                <span className="font-semibold text-[var(--text)]">~underline~</span>,{" "}
-                <span className="font-semibold text-[var(--text)]">~~strikethrough~~</span>,{" "}
-                <span className="font-semibold text-[var(--text)]">[title] ... [title]</span>. New lines work normally.
-              </p>
-            </div>
-          </div>
-
-          {newType === "rich_text" ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Rich text content
-                <textarea
-                  className="mt-1.5 block min-h-48 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono"
-                  value={richTextContent}
-                  onChange={(e) => setRichTextContent(e.target.value)}
-                  placeholder="Use **text** for bold, *text* for italic, _text_ for underline. Write your question content with formatting."
-                  required
-                />
-              </label>
-              <p className="mt-2 text-xs text-[var(--muted)]">Markdown-style formatting: **bold**, *italic*, _underline_</p>
-            </div>
-          ) : null}
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-            <p className="text-sm font-medium text-[var(--text)]">Question image (optional)</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  className="sr-only"
-                  disabled={Boolean(imageUploadBusy)}
-                  onChange={(e) => {
-                    const input = e.currentTarget;
-                    const file = input.files?.[0];
-                    input.value = "";
-                    if (!file) return;
-                    setError(null);
-                    setImageUploadBusy("prompt");
-                    void uploadImageFile(file)
-                      .then((url) => setPromptImageUrl(url))
-                      .catch((err) => setError(err instanceof Error ? err.message : "Upload failed"))
-                      .finally(() => setImageUploadBusy(null));
-                  }}
-                />
-                {imageUploadBusy === "prompt" ? "Uploading…" : "Choose file"}
-              </label>
-              <span className="text-xs text-[var(--muted)]">or URL</span>
-              <input
-                className="min-w-[12rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-                type="text"
-                placeholder="/uploads/… or https://…"
-                value={promptImageUrl}
-                onChange={(e) => setPromptImageUrl(e.target.value)}
-              />
-            </div>
-            {promptImageUrl.trim() ? (
-              <img
-                src={promptImageUrl.trim()}
-                alt=""
-                className="mt-2 max-h-40 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
-              />
-            ) : null}
-          </div>
-
-          <div className="grid gap-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 sm:grid-cols-3">
-            <label className="block text-sm font-medium text-[var(--text)] sm:col-span-2">
-              Question format
-              <select
-                className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                value={newType}
-                onChange={(e) => setNewType(e.target.value as ExamQuestion["type"])}
-              >
-                {allowedTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {questionTypeLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block text-sm font-medium text-[var(--text)]">
-              Points
-              <input
-                className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                type="number"
-                min={1}
-                value={points}
-                onChange={(e) => setPoints(Number(e.target.value))}
-              />
-            </label>
-          </div>
-
-          {newType === "mcq_single" ? (
-            <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-[var(--text)]">Answer choices</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+                  {input.name}{" "}
+                  <span className="font-normal lowercase text-[var(--muted)]">
+                    ({input.type})
+                  </span>
+                </p>
+                {existing ? (
+                  <span className="text-xs font-semibold text-[var(--accent)]">Set</span>
+                ) : (
+                  <span className="text-xs text-[var(--muted)]">Not set</span>
+                )}
+              </div>
+              {input.type === "text" ? (
+                <input
+                  className="mt-2 block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                  type="text"
+                  value={existing?.value ?? ""}
+                  onChange={(e) => setAnswer(input.name, e.target.value, "text")}
+                  placeholder="answer 1|answer 2|…"
+                />
+              ) : input.radioValues && input.radioValues.length > 0 ? (
+                <div className="mt-2 space-y-1.5">
+                  {input.radioValues.map((v) => (
+                    <label key={v} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name={`__correct_${input.name}`}
+                        checked={existing?.value === v}
+                        onChange={() => setAnswer(input.name, v, "radio")}
+                      />
+                      <span className="text-[var(--text)]">{v}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  Radio inputs detected without a <code className="font-mono">value=&quot;…&quot;</code>{" "}
+                  attribute. Add values so students can be graded.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   Writing task panel
+   ========================= */
+
+function WritingTaskPanel({
+  sectionId,
+  sectionLabel,
+  writing,
+  onWritingPatch,
+  uploadBusy,
+  setUploadBusy,
+  onError,
+}: {
+  sectionId: string;
+  sectionLabel: string;
+  writing: WritingQ | undefined;
+  onWritingPatch: (patch: Partial<WritingQ>) => void;
+  uploadBusy: string | null;
+  setUploadBusy: (key: string | null) => void;
+  onError: (msg: string) => void;
+}) {
+  return (
+    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+          {sectionLabel}
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Write the task prompt students must respond to. Optional image (chart, diagram) and
+          rubric for graders.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+        <label className="block text-sm font-semibold text-[var(--text)]">
+          Task prompt
+          <textarea
+            key={`writing-prompt-${sectionId}`}
+            className="mt-2 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+            value={writing?.prompt ?? ""}
+            onChange={(e) => onWritingPatch({ prompt: e.target.value })}
+            placeholder="e.g. The chart below shows… Summarise the information by selecting and reporting the main features…"
+          />
+        </label>
+      </div>
+
+      <ImageAttachField
+        label="Diagram / image (optional)"
+        value={writing?.promptImageUrl ?? ""}
+        onChange={(url) => onWritingPatch({ promptImageUrl: url || undefined })}
+        uploadBusy={uploadBusy}
+        setUploadBusy={setUploadBusy}
+        uploadKey={`writing-img-${sectionId}`}
+        onError={onError}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+          <label className="block text-sm font-semibold text-[var(--text)]">
+            Rubric (optional)
+            <textarea
+              className="mt-2 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+              value={writing?.rubric ?? ""}
+              onChange={(e) =>
+                onWritingPatch({ rubric: e.target.value.length ? e.target.value : undefined })
+              }
+              placeholder="Notes for the grader: band descriptors, key features to award, etc."
+            />
+          </label>
+        </div>
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+          <label className="block text-sm font-semibold text-[var(--text)] sm:max-w-[12rem]">
+            Points
+            <input
+              className="mt-2 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+              type="number"
+              min={1}
+              value={writing?.points ?? 1}
+              onChange={(e) =>
+                onWritingPatch({ points: Math.max(1, Number(e.target.value) || 1) })
+              }
+            />
+          </label>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* =========================
+   Speaking part panel
+   ========================= */
+
+function SpeakingPartPanel({
+  sectionId,
+  sectionLabel,
+  questions,
+  onAdd,
+  onUpdate,
+  onRemove,
+  uploadBusy,
+  setUploadBusy,
+  onError,
+}: {
+  sectionId: string;
+  sectionLabel: string;
+  questions: WritingQ[];
+  onAdd: () => void;
+  onUpdate: (qid: string, patch: Partial<WritingQ>) => void;
+  onRemove: (qid: string) => void;
+  uploadBusy: string | null;
+  setUploadBusy: (key: string | null) => void;
+  onError: (msg: string) => void;
+}) {
+  return (
+    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+            {sectionLabel}
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Add as many speaking prompts as you like for this part.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-[var(--accent)] px-3 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+        >
+          + Add prompt
+        </button>
+      </div>
+
+      {questions.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)] p-8 text-center">
+          <p className="text-sm font-medium text-[var(--text)]">No prompts yet</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Click <span className="font-semibold text-[var(--text)]">Add prompt</span> to create
+            the first one.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-4">
+          {questions.map((q, idx) => (
+            <li
+              key={q.id}
+              className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+                  Prompt {idx + 1}
+                </p>
                 <button
                   type="button"
-                  onClick={() => setChoiceRows((rows) => [...rows, emptyChoiceRow()])}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] transition hover:bg-[var(--hover)]"
+                  onClick={() => onRemove(q.id)}
+                  className="rounded-lg border border-[var(--error-border)] bg-[var(--error-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--error-text)] hover:opacity-80"
                 >
-                  + Add choice
+                  Remove
                 </button>
               </div>
-              <ul className="space-y-3">
-                {choiceRows.map((row, idx) => (
-                  <li key={row.id} className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-                    <div className="flex flex-wrap items-start gap-3">
-                      <label className="flex shrink-0 cursor-pointer items-center gap-2 pt-2 text-xs font-semibold text-[var(--muted)]">
-                        <input
-                          type="radio"
-                          name="correct_choice_new"
-                          checked={correctChoiceIndex === idx}
-                          onChange={() => setCorrectChoiceIndex(idx)}
-                        />
-                        Correct
-                      </label>
-                      <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-                        <label className="text-xs font-semibold text-[var(--faint)]">
-                          Text
-                          <input
-                            className="mt-1 block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm"
-                            value={row.text}
-                            onChange={(e) =>
-                              setChoiceRows((rows) => rows.map((r) => (r.id === row.id ? { ...r, text: e.target.value } : r)))
-                            }
-                            placeholder="Choice text"
-                          />
-                        </label>
-                        <div className="text-xs font-semibold text-[var(--faint)]">
-                          Choice image (optional)
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-[11px] font-semibold">
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/gif,image/webp"
-                                className="sr-only"
-                                disabled={Boolean(imageUploadBusy)}
-                                onChange={(ev) => {
-                                  const input = ev.currentTarget;
-                                  const file = input.files?.[0];
-                                  input.value = "";
-                                  if (!file) return;
-                                  setError(null);
-                                  setImageUploadBusy(row.id);
-                                  void uploadImageFile(file)
-                                    .then((url) =>
-                                      setChoiceRows((rows) => rows.map((r) => (r.id === row.id ? { ...r, imageUrl: url } : r))),
-                                    )
-                                    .catch((err) => setError(err instanceof Error ? err.message : "Upload failed"))
-                                    .finally(() => setImageUploadBusy(null));
-                                }}
-                              />
-                              {imageUploadBusy === row.id ? "…" : "Upload"}
-                            </label>
-                            <input
-                              className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs"
-                              type="text"
-                              value={row.imageUrl ?? ""}
-                              onChange={(e) =>
-                                setChoiceRows((rows) =>
-                                  rows.map((r) => (r.id === row.id ? { ...r, imageUrl: e.target.value || undefined } : r)),
-                                )
-                              }
-                              placeholder="Image URL"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={choiceRows.length <= 2}
-                        onClick={() => {
-                          setChoiceRows((rows) => {
-                            const next = rows.filter((r) => r.id !== row.id);
-                            const removedIdx = rows.findIndex((r) => r.id === row.id);
-                            setCorrectChoiceIndex((i) => {
-                              if (removedIdx < 0) return i;
-                              if (i === removedIdx) return 0;
-                              if (i > removedIdx) return Math.max(0, i - 1);
-                              return Math.min(i, next.length - 1);
-                            });
-                            return next;
-                          });
-                        }}
-                        className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs font-semibold text-[var(--muted)] disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
 
-          {newType === "short_text" ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Correct answer(s)
-                <span className="ml-2 text-xs font-semibold text-[var(--muted)]">(separate multiple answers with |)</span>
-                <input
-                  className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-                  value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value)}
-                  placeholder="e.g., strict quarantine|quarantine"
-                  required
+              <label className="mt-2 block text-sm font-medium text-[var(--text)]">
+                Prompt
+                <textarea
+                  className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  value={q.prompt}
+                  onChange={(e) => onUpdate(q.id, { prompt: e.target.value })}
+                  placeholder="e.g. Describe a place you have visited that you found memorable…"
                 />
               </label>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                Tip: Add multiple acceptable answers separated by | (e.g., "answer 1|answer 2|answer 3"). Grading is case-insensitive.
-              </p>
-            </div>
-          ) : null}
 
-          {newType === "numeric" ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Correct number
+              <div className="mt-3">
+                <ImageAttachField
+                  label="Image (optional)"
+                  value={q.promptImageUrl ?? ""}
+                  onChange={(url) => onUpdate(q.id, { promptImageUrl: url || undefined })}
+                  uploadBusy={uploadBusy}
+                  setUploadBusy={setUploadBusy}
+                  uploadKey={`speaking-img-${sectionId}-${q.id}`}
+                  onError={onError}
+                />
+              </div>
+
+              <label className="mt-3 block text-sm font-medium text-[var(--text)] sm:max-w-[10rem]">
+                Points
                 <input
                   className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
                   type="number"
-                  value={correctNumber}
-                  onChange={(e) => setCorrectNumber(Number(e.target.value))}
+                  min={1}
+                  value={q.points}
+                  onChange={(e) =>
+                    onUpdate(q.id, { points: Math.max(1, Number(e.target.value) || 1) })
+                  }
                 />
               </label>
-            </div>
-          ) : null}
-
-          {newType === "writing" ? (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <label className="block text-sm font-medium text-[var(--text)]">
-                Rubric (optional)
-                <textarea
-                  className="mt-1.5 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                  value={rubric}
-                  onChange={(e) => setRubric(e.target.value)}
-                />
-              </label>
-            </div>
-          ) : null}
-
-          <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-[var(--muted)]">
-              Adds to the local list only. Click <span className="font-semibold text-[var(--text)]">Save exam</span> to persist.
-            </p>
-            <button
-              type="submit"
-              disabled={!exam}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
-            >
-              Add question
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* Questions list */}
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border)] pb-4">
-          <div>
-            <h2 className="text-base font-semibold text-[var(--text)]">
-              {isIeltsFull ? `Questions · ${currentSectionLabel}` : "Questions"}
-            </h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {isIeltsFull
-                ? `${questionsInCurrentSection.length} in this subsection · ${pointsInCurrentSection} pts`
-                : `${localQuestions.length} total`}
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={!exam || saving || !dirty}
-            onClick={() => void saveExam()}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-          >
-            Save exam
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-4">
-          {(isIeltsFull ? questionsInCurrentSection : localQuestions).map((q, idx) => (
-            <div key={q.id} className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-              {editingId === q.id && editBuf ? (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-                    Editing Q{idx + 1} · {questionTypeLabel(editBuf.type)}
-                  </p>
-                  {editBuf.type !== "rich_text" ? (
-                    <label className="text-sm font-medium text-[var(--text)]">
-                      Prompt
-                      <textarea
-                        className="mt-1 block min-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                        value={"prompt" in editBuf ? editBuf.prompt : ""}
-                        onChange={(e) => {
-                          if ("prompt" in editBuf) {
-                            setEditBuf({ ...editBuf, prompt: e.target.value });
-                          }
-                        }}
-                      />
-                    </label>
-                  ) : null}
-                  <label className="text-sm font-medium text-[var(--text)]">
-                    Description / Context (optional)
-                    <textarea
-                      className="mt-1 block min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                      value={editBuf.description ?? ""}
-                      onChange={(e) => setEditBuf({ ...editBuf, description: e.target.value || undefined })}
-                    />
-                  </label>
-                  {editBuf.type === "rich_text" ? (
-                    <label className="text-sm font-medium text-[var(--text)]">
-                      Rich text content
-                      <textarea
-                        className="mt-1 block min-h-32 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-mono"
-                        value={editBuf.content}
-                        onChange={(e) => setEditBuf({ ...editBuf, content: e.target.value })}
-                      />
-                    </label>
-                  ) : null}
-                  <label className="text-sm font-medium text-[var(--text)]">
-                    Points
-                    <input
-                      className="mt-1 block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                      type="number"
-                      min={1}
-                      value={editBuf.points}
-                      onChange={(e) => setEditBuf({ ...editBuf, points: Number(e.target.value) })}
-                    />
-                  </label>
-
-                  {editBuf.type === "mcq_single" ? (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-[var(--text)]">Choices</p>
-                      {editChoiceRows.map((row, i) => (
-                        <div
-                          key={row.id}
-                          className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2"
-                        >
-                          <label className="flex items-center gap-1 text-xs font-semibold text-[var(--muted)]">
-                            <input
-                              type="radio"
-                              name="edit_correct"
-                              checked={editCorrectChoiceIndex === i}
-                              onChange={() => setEditCorrectChoiceIndex(i)}
-                            />
-                            OK
-                          </label>
-                          <input
-                            className="min-w-0 flex-1 rounded border border-[var(--border)] px-2 py-1.5 text-sm"
-                            value={row.text}
-                            onChange={(e) =>
-                              setEditChoiceRows((rows) => rows.map((r) => (r.id === row.id ? { ...r, text: e.target.value } : r)))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {editBuf.type === "short_text" ? (
-                    <label className="text-sm font-medium text-[var(--text)]">
-                      Correct answer(s)
-                      <span className="ml-2 text-xs text-[var(--muted)]">(separate with |)</span>
-                      <input
-                        className="mt-1 block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                        value={editBuf.correctAnswer}
-                        onChange={(e) => setEditBuf({ ...editBuf, correctAnswer: e.target.value })}
-                        placeholder="e.g., answer1|answer2"
-                      />
-                    </label>
-                  ) : null}
-
-                  {editBuf.type === "numeric" ? (
-                    <label className="text-sm font-medium text-[var(--text)]">
-                      Correct number
-                      <input
-                        className="mt-1 block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                        type="number"
-                        value={editBuf.correctNumber}
-                        onChange={(e) => setEditBuf({ ...editBuf, correctNumber: Number(e.target.value) } as ExamQuestion)}
-                      />
-                    </label>
-                  ) : null}
-
-                  {editBuf.type === "writing" ? (
-                    <label className="text-sm font-medium text-[var(--text)]">
-                      Rubric
-                      <textarea
-                        className="mt-1 block min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm"
-                        value={editBuf.rubric ?? ""}
-                        onChange={(e) => setEditBuf({ ...editBuf, rubric: e.target.value || undefined })}
-                      />
-                    </label>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => applyEdit()}
-                      className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]"
-                    >
-                      Save changes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => cancelEdit()}
-                      className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--muted)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-[var(--faint)]">Q{idx + 1}</span>
-                        <span className="rounded-md bg-[var(--surface)] px-2 py-0.5 text-xs font-semibold text-[var(--muted)] ring-1 ring-[var(--border)]">
-                          {questionTypeLabel(q.type)}
-                        </span>
-                        <span className="text-xs text-[var(--faint)]">{q.points} pts</span>
-                        {q.sectionId ? (
-                          <span className="text-xs text-[var(--faint)]">{sectionLabelForQuestion(q.sectionId)}</span>
-                        ) : null}
-                      </div>
-                      {q.description ? (
-                        <p className="mt-2 whitespace-pre-wrap text-xs font-medium text-[var(--muted)] italic border-l-2 border-[var(--border)] pl-2">
-                          {q.description}
-                        </p>
-                      ) : null}
-                      {q.type !== "rich_text" && "prompt" in q ? (
-                        <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">{q.prompt}</p>
-                      ) : null}
-                      {q.type === "rich_text" && "content" in q ? (
-                        <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
-                          {formatRichText(q.content)}
-                        </div>
-                      ) : null}
-                      {q.type === "mcq_single" ? (
-                        <ol className="mt-2 space-y-1 text-sm text-[var(--muted)]">
-                          {normalizeExamChoices(q.choices as unknown).map((c, i) => (
-                            <li key={c.id}>
-                              {String.fromCharCode(65 + i)}. {choiceDisplayText(c)}
-                              {i === q.correctChoiceIndex ? (
-                                <span className="ml-2 text-xs font-semibold text-[var(--accent)]">(correct)</span>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ol>
-                      ) : null}
-                      {q.type === "short_text" ? (
-                        <p className="mt-1 text-xs text-[var(--muted)]">Answer: {q.correctAnswer}</p>
-                      ) : null}
-                      {q.type === "numeric" ? (
-                        <p className="mt-1 text-xs text-[var(--muted)]">Value: {q.correctNumber}</p>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(q)}
-                        className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[var(--hover)]"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeQuestionLocal(q.id)}
-                        className="rounded-lg border border-[var(--error-border)] bg-[var(--error-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--error-text)] hover:opacity-80"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            </li>
           ))}
-          {(isIeltsFull ? questionsInCurrentSection : localQuestions).length === 0 ? (
-            <p className="py-8 text-center text-sm text-[var(--muted)]">
-              No questions yet{isIeltsFull ? " in this subsection" : ""}. Add one above to get started.
-            </p>
-          ) : null}
-        </div>
-      </section>
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* =========================
+   Reusable image-attach field
+   ========================= */
+
+function ImageAttachField({
+  label,
+  value,
+  onChange,
+  uploadBusy,
+  setUploadBusy,
+  uploadKey,
+  onError,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  uploadBusy: string | null;
+  setUploadBusy: (key: string | null) => void;
+  uploadKey: string;
+  onError: (msg: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+      <p className="text-sm font-semibold text-[var(--text)]">{label}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="sr-only"
+            disabled={Boolean(uploadBusy)}
+            onChange={(e) => {
+              const input = e.currentTarget;
+              const file = input.files?.[0];
+              input.value = "";
+              if (!file) return;
+              setUploadBusy(uploadKey);
+              void uploadImageFile(file)
+                .then((url) => onChange(url))
+                .catch((err) =>
+                  onError(err instanceof Error ? err.message : "Upload failed"),
+                )
+                .finally(() => setUploadBusy(null));
+            }}
+          />
+          {uploadBusy === uploadKey ? "Uploading…" : "Choose file"}
+        </label>
+        <span className="text-xs text-[var(--muted)]">or URL</span>
+        <input
+          className="min-w-[14rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+          type="text"
+          placeholder="/uploads/… or https://…"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+      {value.trim() ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value.trim()}
+          alt=""
+          className="mt-3 max-h-56 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+        />
+      ) : null}
     </div>
   );
 }
