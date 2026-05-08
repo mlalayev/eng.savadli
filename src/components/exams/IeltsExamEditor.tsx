@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { ExamQuestion } from "@/lib/exams/types";
 import type { Exam, IeltsGroup, IeltsMaterialsMap } from "./shared/types";
 import { api, uploadImageFile, uploadAudioFile } from "./shared/api";
-import { uid, ieltsGroupForSectionId, ieltsGroupLabel } from "./shared/helpers";
+import { uid, ieltsGroupForSectionId, ieltsGroupLabel, formatRichText } from "./shared/helpers";
 import { ExamHeader } from "./shared/ExamHeader";
 import { parseHtmlInputs, countHtmlQuestions } from "@/lib/exams/html-parser";
 import { HtmlPreview } from "./HtmlPreview";
+import { HtmlInteractiveRunner } from "./HtmlInteractiveRunner";
+import { ListeningAudioPanel } from "@/components/dashboard/ListeningAudioPanel";
 
 type IeltsExamEditorProps = {
   exam: Exam;
@@ -320,6 +322,20 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
           />
         ) : null}
       </TabsShell>
+
+      <IeltsSectionPreview
+        group={ieltsGroup}
+        sectionId={sectionId}
+        sectionLabel={currentSectionLabel}
+        questions={
+          isAudioTab
+            ? []
+            : (localQuestions.filter((q) => q.sectionId === sectionId) as ExamQuestion[])
+        }
+        materialText={ieltsMaterials[sectionId]?.text ?? ""}
+        listeningAudioUrl={ieltsMaterials[LISTENING_AUDIO_KEY]?.audioUrl ?? ""}
+        isAudioTab={isAudioTab}
+      />
     </div>
   );
 }
@@ -1023,6 +1039,260 @@ function ImageAttachField({
           src={value.trim()}
           alt=""
           className="mt-3 max-h-56 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/* =========================
+   Question preview (mirrors student-side IELTS rendering)
+   ========================= */
+
+function IeltsSectionPreview({
+  group,
+  sectionId,
+  sectionLabel,
+  questions,
+  materialText,
+  listeningAudioUrl,
+  isAudioTab,
+}: {
+  group: IeltsGroup;
+  sectionId: string;
+  sectionLabel: string;
+  questions: ExamQuestion[];
+  materialText: string;
+  listeningAudioUrl: string;
+  isAudioTab: boolean;
+}) {
+  const empty = (() => {
+    if (isAudioTab) return null;
+    if (questions.length === 0) {
+      if (group === "listening" || group === "reading")
+        return "Add HTML content above to see how this section will render for students.";
+      if (group === "writing") return "Add a task prompt above to see the preview.";
+      if (group === "speaking") return "Add at least one prompt above to see the preview.";
+    }
+    return null;
+  })();
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--background)] px-5 py-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+            Question preview
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-[var(--text)]">{sectionLabel || "—"}</p>
+        </div>
+        <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--accent)]">
+          Student view
+        </span>
+      </header>
+
+      <div className="bg-[var(--background)] p-4 sm:p-6">
+        {empty ? (
+          <p className="py-10 text-center text-sm text-[var(--muted)]">{empty}</p>
+        ) : isAudioTab ? (
+          <ListeningAudioPanel src={listeningAudioUrl} subtitle="Shared across Sections 1–4" />
+        ) : group === "listening" ? (
+          <PreviewListeningSplit
+            sectionId={sectionId}
+            sectionLabel={sectionLabel}
+            materialText={materialText}
+            questions={questions}
+            listeningAudioUrl={listeningAudioUrl}
+          />
+        ) : (
+          <PreviewQuestionStack questions={questions} sectionId={sectionId} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function PreviewListeningSplit({
+  sectionId,
+  sectionLabel,
+  materialText,
+  questions,
+  listeningAudioUrl,
+}: {
+  sectionId: string;
+  sectionLabel: string;
+  materialText: string;
+  questions: ExamQuestion[];
+  listeningAudioUrl: string;
+}) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(260px,320px)_1fr]">
+      <aside className="space-y-4">
+        <ListeningAudioPanel src={listeningAudioUrl} subtitle={sectionLabel || undefined} />
+        {materialText.trim() ? (
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-[var(--accent-soft)]/60 blur-2xl"
+            />
+            <div className="relative border-b border-[var(--border)] px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">
+                Materials
+              </p>
+              <h3 className="mt-1 text-sm font-semibold text-[var(--text)]">
+                Script and directions
+              </h3>
+            </div>
+            <div className="relative max-h-[28rem] overflow-y-auto px-5 py-4">
+              <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">
+                {formatRichText(materialText)}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </aside>
+
+      <div className="flex min-h-0 min-w-0 flex-col gap-4">
+        {questions.map((q, i) =>
+          q.type === "html_interactive" ? (
+            <div
+              key={q.id}
+              className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white"
+            >
+              <HtmlInteractiveRunner
+                questionId={q.id}
+                htmlContent={q.htmlContent}
+                cssContent={q.cssContent}
+                disabled
+                storedAnswersJson="{}"
+                onValuesChange={() => {}}
+                bare
+                iframeId={`preview-q-${sectionId}-${i + 1}`}
+              />
+            </div>
+          ) : (
+            <PreviewQuestionCard key={q.id} q={q} localN={i + 1} appearance="listening" />
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PreviewQuestionStack({
+  questions,
+  sectionId,
+}: {
+  questions: ExamQuestion[];
+  sectionId: string;
+}) {
+  return (
+    <div className="mx-auto max-w-3xl space-y-5">
+      {questions.map((q, i) => (
+        <PreviewQuestionCard
+          key={q.id}
+          q={q}
+          localN={i + 1}
+          appearance="default"
+          sectionId={sectionId}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PreviewQuestionCard({
+  q,
+  localN,
+  appearance,
+  sectionId,
+}: {
+  q: ExamQuestion;
+  localN: number;
+  appearance: "default" | "listening";
+  sectionId?: string;
+}) {
+  const cardShell =
+    appearance === "listening"
+      ? "scroll-mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--shadow-ring)]"
+      : "scroll-mt-4 rounded-2xl border border-[var(--accent)]/40 bg-[var(--surface)] p-5 shadow-sm ring-1 ring-[var(--accent)]/15";
+
+  return (
+    <div className={cardShell}>
+      <p
+        className={
+          appearance === "listening"
+            ? "text-xs font-semibold uppercase tracking-wider text-[var(--accent)]"
+            : "text-xs font-semibold uppercase tracking-wider text-[var(--faint)]"
+        }
+      >
+        Question <span className="text-[var(--text)]">{localN}</span>
+        <span className="font-normal text-[var(--faint)]"> · {q.points} pts</span>
+      </p>
+
+      {q.description ? (
+        <div className="mt-2 whitespace-pre-wrap border-l-2 border-[var(--border)] pl-2 text-xs font-medium italic text-[var(--muted)]">
+          {formatRichText(q.description)}
+        </div>
+      ) : null}
+
+      {q.type !== "rich_text" && "prompt" in q ? (
+        <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
+          {formatRichText(q.prompt)}
+        </div>
+      ) : null}
+
+      {q.type === "rich_text" && "content" in q ? (
+        <div className="mt-2 whitespace-pre-wrap text-sm font-medium text-[var(--text)]">
+          {formatRichText(q.content)}
+        </div>
+      ) : null}
+
+      {"promptImageUrl" in q && q.promptImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={q.promptImageUrl}
+          alt=""
+          className="mt-3 max-h-64 w-auto max-w-full rounded-lg border border-[var(--border)] object-contain"
+        />
+      ) : null}
+
+      {q.type === "writing" ? (
+        <textarea
+          className="mt-4 block min-h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          placeholder="Student response goes here…"
+          disabled
+        />
+      ) : null}
+
+      {q.type === "html_interactive" ? (
+        <HtmlInteractiveRunner
+          questionId={q.id}
+          htmlContent={q.htmlContent}
+          cssContent={q.cssContent}
+          disabled
+          storedAnswersJson="{}"
+          onValuesChange={() => {}}
+          iframeId={
+            sectionId ? `preview-q-${sectionId}-${localN}` : `preview-q-${q.id}-${localN}`
+          }
+        />
+      ) : null}
+
+      {q.type === "short_text" ? (
+        <input
+          className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          placeholder="Type your answer…"
+          disabled
+        />
+      ) : null}
+
+      {q.type === "numeric" ? (
+        <input
+          className="mt-4 block w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm"
+          type="number"
+          placeholder="0"
+          disabled
         />
       ) : null}
     </div>
