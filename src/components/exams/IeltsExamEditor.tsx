@@ -54,8 +54,17 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
     setSectionId((prev) => (groupSections.some((s) => s.id === prev) ? prev : groupSections[0].id));
   }, [groupSections]);
 
+  // Switching group also picks the first subsection synchronously to avoid a render flicker.
+  function switchGroup(g: IeltsGroup) {
+    setIeltsGroup(g);
+    const firstInGroup = sections.find((s) => ieltsGroupForSectionId(s.id) === g);
+    if (firstInGroup) setSectionId(firstInGroup.id);
+  }
+
+  const AUDIO_TAB_ID = "__audio__";
+  const isAudioTab = ieltsGroup === "listening" && sectionId === AUDIO_TAB_ID;
   const currentSection = sections.find((s) => s.id === sectionId);
-  const currentSectionLabel = currentSection?.label ?? "";
+  const currentSectionLabel = isAudioTab ? "Listening · Audio" : currentSection?.label ?? "";
 
   // ---------- Derived counts / dirty / totals ----------
   const totalPoints = useMemo(
@@ -243,84 +252,93 @@ export function IeltsExamEditor({ exam, onUpdate }: IeltsExamEditorProps) {
         </p>
       ) : null}
 
-      <SectionNav
+      <TabsShell
         ieltsGroup={ieltsGroup}
-        setIeltsGroup={setIeltsGroup}
+        setIeltsGroup={switchGroup}
         groupSections={groupSections}
         sectionId={sectionId}
         setSectionId={setSectionId}
         sectionStatus={sectionStatus}
-      />
-
-      {(ieltsGroup === "listening" || ieltsGroup === "reading") && currentSection ? (
-        <HtmlSectionPanel
-          group={ieltsGroup}
-          sectionId={sectionId}
-          sectionLabel={currentSectionLabel}
-          materialText={ieltsMaterials[sectionId]?.text ?? ""}
-          onMaterialTextChange={(text) =>
-            setIeltsMaterials((prev) => ({
-              ...prev,
-              [sectionId]: { ...(prev[sectionId] ?? {}), text },
-            }))
-          }
-          listeningAudioUrl={ieltsMaterials[LISTENING_AUDIO_KEY]?.audioUrl ?? ""}
-          onListeningAudioUrlChange={(url) =>
-            setIeltsMaterials((prev) => ({
-              ...prev,
-              [LISTENING_AUDIO_KEY]: { ...(prev[LISTENING_AUDIO_KEY] ?? {}), audioUrl: url },
-            }))
-          }
-          html={getHtml(sectionId)}
-          onHtmlPatch={(patch) => upsertHtml(sectionId, patch)}
-          uploadBusy={uploadBusy}
-          setUploadBusy={setUploadBusy}
-          onError={(msg) => setError(msg)}
-        />
-      ) : null}
-
-      {ieltsGroup === "writing" && currentSection ? (
-        <WritingTaskPanel
-          sectionId={sectionId}
-          sectionLabel={currentSectionLabel}
-          writing={getWriting(sectionId)}
-          onWritingPatch={(patch) => upsertWriting(sectionId, patch)}
-          uploadBusy={uploadBusy}
-          setUploadBusy={setUploadBusy}
-          onError={(msg) => setError(msg)}
-        />
-      ) : null}
-
-      {ieltsGroup === "speaking" && currentSection ? (
-        <SpeakingPartPanel
-          sectionId={sectionId}
-          sectionLabel={currentSectionLabel}
-          questions={localQuestions.filter(
-            (q) => q.sectionId === sectionId && q.type === "writing",
-          ) as WritingQ[]}
-          onAdd={() => addSpeakingQuestion(sectionId)}
-          onUpdate={(qid, patch) => updateQuestion(qid, patch)}
-          onRemove={(qid) => removeQuestion(qid)}
-          uploadBusy={uploadBusy}
-          setUploadBusy={setUploadBusy}
-          onError={(msg) => setError(msg)}
-        />
-      ) : null}
+        hasAudioTab={ieltsGroup === "listening"}
+        audioTabId={AUDIO_TAB_ID}
+        audioFilled={Boolean(ieltsMaterials[LISTENING_AUDIO_KEY]?.audioUrl?.trim())}
+      >
+        {isAudioTab ? (
+          <AudioPanel
+            sectionLabel={currentSectionLabel}
+            listeningAudioUrl={ieltsMaterials[LISTENING_AUDIO_KEY]?.audioUrl ?? ""}
+            onListeningAudioUrlChange={(url) =>
+              setIeltsMaterials((prev) => ({
+                ...prev,
+                [LISTENING_AUDIO_KEY]: { ...(prev[LISTENING_AUDIO_KEY] ?? {}), audioUrl: url },
+              }))
+            }
+            uploadBusy={uploadBusy}
+            setUploadBusy={setUploadBusy}
+            onError={(msg) => setError(msg)}
+          />
+        ) : (ieltsGroup === "listening" || ieltsGroup === "reading") && currentSection ? (
+          <HtmlSectionPanel
+            group={ieltsGroup}
+            sectionId={sectionId}
+            sectionLabel={currentSectionLabel}
+            materialText={ieltsMaterials[sectionId]?.text ?? ""}
+            onMaterialTextChange={(text) =>
+              setIeltsMaterials((prev) => ({
+                ...prev,
+                [sectionId]: { ...(prev[sectionId] ?? {}), text },
+              }))
+            }
+            html={getHtml(sectionId)}
+            onHtmlPatch={(patch) => upsertHtml(sectionId, patch)}
+          />
+        ) : ieltsGroup === "writing" && currentSection ? (
+          <WritingTaskPanel
+            sectionId={sectionId}
+            sectionLabel={currentSectionLabel}
+            writing={getWriting(sectionId)}
+            onWritingPatch={(patch) => upsertWriting(sectionId, patch)}
+            uploadBusy={uploadBusy}
+            setUploadBusy={setUploadBusy}
+            onError={(msg) => setError(msg)}
+          />
+        ) : ieltsGroup === "speaking" && currentSection ? (
+          <SpeakingPartPanel
+            sectionId={sectionId}
+            sectionLabel={currentSectionLabel}
+            questions={
+              localQuestions.filter(
+                (q) => q.sectionId === sectionId && q.type === "writing",
+              ) as WritingQ[]
+            }
+            onAdd={() => addSpeakingQuestion(sectionId)}
+            onUpdate={(qid, patch) => updateQuestion(qid, patch)}
+            onRemove={(qid) => removeQuestion(qid)}
+            uploadBusy={uploadBusy}
+            setUploadBusy={setUploadBusy}
+            onError={(msg) => setError(msg)}
+          />
+        ) : null}
+      </TabsShell>
     </div>
   );
 }
 
 /* =========================
-   Section navigator
+   Tabs shell (group tabs + subsection bar + content)
    ========================= */
 
-function SectionNav({
+function TabsShell({
   ieltsGroup,
   setIeltsGroup,
   groupSections,
   sectionId,
   setSectionId,
   sectionStatus,
+  hasAudioTab,
+  audioTabId,
+  audioFilled,
+  children,
 }: {
   ieltsGroup: IeltsGroup;
   setIeltsGroup: (g: IeltsGroup) => void;
@@ -328,26 +346,22 @@ function SectionNav({
   sectionId: string;
   setSectionId: (sid: string) => void;
   sectionStatus: Record<string, { filled: boolean; count: number }>;
+  hasAudioTab: boolean;
+  audioTabId: string;
+  audioFilled: boolean;
+  children: React.ReactNode;
 }) {
   const groups: IeltsGroup[] = ["listening", "reading", "writing", "speaking"];
 
-  const groupHelp: Record<IeltsGroup, string> = {
-    listening: "4 sections · one HTML/CSS question per section · one shared audio file",
-    reading: "3 passages · one HTML/CSS question per passage",
-    writing: "2 tasks · prompt + optional image attachment per task",
-    speaking: "3 parts · add as many prompts as you like per part",
-  };
+  const subTabs: { id: string; label: string; isAudio?: boolean }[] = [
+    ...groupSections.map((s) => ({ id: s.id, label: shortSubsectionLabel(s.label) })),
+    ...(hasAudioTab ? [{ id: audioTabId, label: "Audio", isAudio: true }] : []),
+  ];
 
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-          IELTS sections
-        </p>
-        <p className="mt-1 text-sm text-[var(--muted)]">{groupHelp[ieltsGroup]}</p>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div>
+      {/* Group tabs row */}
+      <div className="flex flex-wrap gap-1 px-1">
         {groups.map((g) => {
           const on = ieltsGroup === g;
           return (
@@ -355,10 +369,10 @@ function SectionNav({
               key={g}
               type="button"
               onClick={() => setIeltsGroup(g)}
-              className={`inline-flex h-10 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition ${
+              className={`relative -mb-px inline-flex h-10 min-w-[7rem] items-center justify-center rounded-t-xl px-5 text-sm font-semibold transition ${
                 on
-                  ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--hover)]"
+                  ? "z-10 border border-[var(--border)] border-b-[var(--surface)] bg-[var(--surface)] text-[var(--text)] shadow-[0_-1px_0_var(--shadow-ring)]"
+                  : "border border-transparent bg-transparent text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
               }`}
             >
               {ieltsGroupLabel(g)}
@@ -367,46 +381,61 @@ function SectionNav({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {groupSections.map((s) => {
-          const on = sectionId === s.id;
-          const status = sectionStatus[s.id] ?? { filled: false, count: 0 };
-          const shortLabel = shortSubsectionLabel(s.label);
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setSectionId(s.id)}
-              className={`inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-semibold transition ${
-                on
-                  ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "border-[var(--border)] bg-[var(--background)] text-[var(--text)] hover:bg-[var(--hover)]"
-              }`}
-            >
-              <span>{shortLabel}</span>
-              {ieltsGroup === "speaking" ? (
-                <span
-                  className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                    status.count > 0
-                      ? "bg-[var(--accent)] text-[var(--on-accent)]"
-                      : "bg-[var(--border)] text-[var(--muted)]"
-                  }`}
-                >
-                  {status.count}
-                </span>
-              ) : (
-                <span
-                  aria-hidden
-                  className={`h-2 w-2 rounded-full ${
-                    status.filled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-                  }`}
-                />
-              )}
-            </button>
-          );
-        })}
+      {/* Panel attached to the active group tab */}
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+        {/* Subsection bar */}
+        <div className="flex flex-wrap items-stretch border-b border-[var(--border)] bg-[var(--background)] px-1.5">
+          {subTabs.map((s) => {
+            const on = sectionId === s.id;
+            const status = s.isAudio
+              ? { filled: audioFilled, count: 0 }
+              : sectionStatus[s.id] ?? { filled: false, count: 0 };
+            const showCount = ieltsGroup === "speaking" && !s.isAudio;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSectionId(s.id)}
+                className={`relative inline-flex h-11 items-center gap-2 px-4 text-xs font-semibold transition ${
+                  on
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                <span>{s.label}</span>
+                {showCount ? (
+                  <span
+                    className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                      status.count > 0
+                        ? "bg-[var(--accent)] text-[var(--on-accent)]"
+                        : "bg-[var(--border)] text-[var(--muted)]"
+                    }`}
+                  >
+                    {status.count}
+                  </span>
+                ) : (
+                  <span
+                    aria-hidden
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      status.filled ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+                    }`}
+                  />
+                )}
+                {on ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[var(--accent)]"
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active panel content */}
+        <div className="p-5 sm:p-6">{children}</div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -426,26 +455,16 @@ function HtmlSectionPanel({
   sectionLabel,
   materialText,
   onMaterialTextChange,
-  listeningAudioUrl,
-  onListeningAudioUrlChange,
   html,
   onHtmlPatch,
-  uploadBusy,
-  setUploadBusy,
-  onError,
 }: {
   group: "listening" | "reading";
   sectionId: string;
   sectionLabel: string;
   materialText: string;
   onMaterialTextChange: (text: string) => void;
-  listeningAudioUrl: string;
-  onListeningAudioUrlChange: (url: string) => void;
   html: HtmlQ | undefined;
   onHtmlPatch: (patch: Partial<HtmlQ>) => void;
-  uploadBusy: string | null;
-  setUploadBusy: (key: string | null) => void;
-  onError: (msg: string) => void;
 }) {
   const detected = useMemo(
     () => parseHtmlInputs(html?.htmlContent ?? ""),
@@ -454,14 +473,14 @@ function HtmlSectionPanel({
   const correctAnswers = html?.correctAnswers ?? [];
 
   return (
-    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+    <div className="space-y-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
           {sectionLabel}
         </p>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {group === "listening"
-            ? "Add the listening script / notes (optional) and write the section's HTML/CSS. The audio file below is shared across all four listening sections."
+            ? "Add the listening script / notes (optional) and write the section's HTML/CSS. Manage the shared audio in the Audio tab."
             : "Paste the reading passage and write the section's HTML/CSS. Only one HTML question lives in this passage."}
         </p>
       </div>
@@ -490,52 +509,6 @@ function HtmlSectionPanel({
           <span className="font-semibold text-[var(--text)]">[title] … [title]</span>.
         </p>
       </div>
-
-      {/* Listening audio (shared) */}
-      {group === "listening" ? (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
-            Listening audio (shared across Sections 1–4)
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
-              <input
-                type="file"
-                accept="audio/*"
-                className="sr-only"
-                disabled={Boolean(uploadBusy)}
-                onChange={(e) => {
-                  const input = e.currentTarget;
-                  const file = input.files?.[0];
-                  input.value = "";
-                  if (!file) return;
-                  setUploadBusy("listening_audio");
-                  void uploadAudioFile(file)
-                    .then((url) => onListeningAudioUrlChange(url))
-                    .catch((err) =>
-                      onError(err instanceof Error ? err.message : "Upload failed"),
-                    )
-                    .finally(() => setUploadBusy(null));
-                }}
-              />
-              {uploadBusy === "listening_audio" ? "Uploading…" : "Choose file"}
-            </label>
-            <span className="text-xs text-[var(--muted)]">or</span>
-            <input
-              className="min-w-[16rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
-              type="text"
-              placeholder="/uploads/… or https://…"
-              value={listeningAudioUrl}
-              onChange={(e) => onListeningAudioUrlChange(e.target.value)}
-            />
-          </div>
-          {listeningAudioUrl.trim() ? (
-            <audio className="mt-3 w-full" controls src={listeningAudioUrl.trim()} />
-          ) : (
-            <p className="mt-3 text-xs text-[var(--muted)]">No audio attached yet.</p>
-          )}
-        </div>
-      ) : null}
 
       {/* HTML / CSS editor */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-5">
@@ -615,7 +588,78 @@ function HtmlSectionPanel({
           />
         </label>
       </div>
-    </section>
+    </div>
+  );
+}
+
+function AudioPanel({
+  sectionLabel,
+  listeningAudioUrl,
+  onListeningAudioUrlChange,
+  uploadBusy,
+  setUploadBusy,
+  onError,
+}: {
+  sectionLabel: string;
+  listeningAudioUrl: string;
+  onListeningAudioUrlChange: (url: string) => void;
+  uploadBusy: string | null;
+  setUploadBusy: (key: string | null) => void;
+  onError: (msg: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
+          {sectionLabel}
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          One audio file shared across all four listening sections. Students play this while
+          answering Sections 1–4.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
+        <p className="text-sm font-semibold text-[var(--text)]">Audio file</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]">
+            <input
+              type="file"
+              accept="audio/*"
+              className="sr-only"
+              disabled={Boolean(uploadBusy)}
+              onChange={(e) => {
+                const input = e.currentTarget;
+                const file = input.files?.[0];
+                input.value = "";
+                if (!file) return;
+                setUploadBusy("listening_audio");
+                void uploadAudioFile(file)
+                  .then((url) => onListeningAudioUrlChange(url))
+                  .catch((err) =>
+                    onError(err instanceof Error ? err.message : "Upload failed"),
+                  )
+                  .finally(() => setUploadBusy(null));
+              }}
+            />
+            {uploadBusy === "listening_audio" ? "Uploading…" : "Choose file"}
+          </label>
+          <span className="text-xs text-[var(--muted)]">or URL</span>
+          <input
+            className="min-w-[16rem] flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+            type="text"
+            placeholder="/uploads/… or https://…"
+            value={listeningAudioUrl}
+            onChange={(e) => onListeningAudioUrlChange(e.target.value)}
+          />
+        </div>
+        {listeningAudioUrl.trim() ? (
+          <audio className="mt-4 w-full" controls src={listeningAudioUrl.trim()} />
+        ) : (
+          <p className="mt-3 text-xs text-[var(--muted)]">No audio attached yet.</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -735,7 +779,7 @@ function WritingTaskPanel({
   onError: (msg: string) => void;
 }) {
   return (
-    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+    <div className="space-y-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
           {sectionLabel}
@@ -798,7 +842,7 @@ function WritingTaskPanel({
           </label>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -828,7 +872,7 @@ function SpeakingPartPanel({
   onError: (msg: string) => void;
 }) {
   return (
-    <section className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm sm:p-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">
@@ -913,7 +957,7 @@ function SpeakingPartPanel({
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
