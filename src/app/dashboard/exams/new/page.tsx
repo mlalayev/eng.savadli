@@ -78,20 +78,6 @@ export default function NewExamPage() {
   const [program, setProgram] = useState<ExamProgram>("ielts");
   const [mode, setMode] = useState<ExamMode>("full");
   const [drillSection, setDrillSection] = useState<string>("reading");
-  const [enabledIeltsSections, setEnabledIeltsSections] = useState<Record<string, boolean>>({
-    listening_s1: true,
-    listening_s2: true,
-    listening_s3: true,
-    listening_s4: true,
-    reading_p1: true,
-    reading_p2: true,
-    reading_p3: true,
-    writing_t1: true,
-    writing_t2: true,
-    speaking_p1: true,
-    speaking_p2: true,
-    speaking_p3: true,
-  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -131,21 +117,13 @@ export default function NewExamPage() {
             },
           ];
 
-    const filtered =
-      program === "ielts" && mode === "full"
-        ? baseSections.filter((s) => enabledIeltsSections[s.id] !== false)
-        : baseSections;
-
-    return { program, mode, sections: filtered } as ExamStructure;
-  }, [program, mode, drillSection, sections, enabledIeltsSections]);
+    return { program, mode, sections: baseSections } as ExamStructure;
+  }, [program, mode, drillSection, sections]);
 
   async function create() {
     setError(null);
     setBusy(true);
     try {
-      if (program === "ielts" && mode === "full" && structure.sections.length === 0) {
-        throw new Error("Select at least one IELTS part.");
-      }
       const data = await api<{ id: string }>("/api/exams", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -270,104 +248,6 @@ export default function NewExamPage() {
                 </div>
               </div>
 
-              {program === "ielts" && mode === "full" ? (
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">IELTS parts</p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">Choose which parts to include</p>
-                  <div className="mt-3 space-y-2 text-sm">
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Listening</p>
-                      <div className="mt-2 space-y-2">
-                        {[
-                          { id: "listening_s1", label: "Section 1" },
-                          { id: "listening_s2", label: "Section 2" },
-                          { id: "listening_s3", label: "Section 3" },
-                          { id: "listening_s4", label: "Section 4" },
-                        ].map((s) => (
-                          <label key={s.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={enabledIeltsSections[s.id] !== false}
-                              onChange={(e) =>
-                                setEnabledIeltsSections((prev) => ({ ...prev, [s.id]: e.target.checked }))
-                              }
-                            />
-                            <span className="text-[var(--text)]">{s.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Reading</p>
-                      <div className="mt-2 space-y-2">
-                        {[
-                          { id: "reading_p1", label: "Passage 1" },
-                          { id: "reading_p2", label: "Passage 2" },
-                          { id: "reading_p3", label: "Passage 3" },
-                        ].map((s) => (
-                          <label key={s.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={enabledIeltsSections[s.id] !== false}
-                              onChange={(e) =>
-                                setEnabledIeltsSections((prev) => ({ ...prev, [s.id]: e.target.checked }))
-                              }
-                            />
-                            <span className="text-[var(--text)]">{s.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Writing</p>
-                      <div className="mt-2 space-y-2">
-                        {[
-                          { id: "writing_t1", label: "Task 1" },
-                          { id: "writing_t2", label: "Task 2" },
-                        ].map((s) => (
-                          <label key={s.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={enabledIeltsSections[s.id] !== false}
-                              onChange={(e) =>
-                                setEnabledIeltsSections((prev) => ({ ...prev, [s.id]: e.target.checked }))
-                              }
-                            />
-                            <span className="text-[var(--text)]">{s.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faint)]">Speaking</p>
-                      <div className="mt-2 space-y-2">
-                        {[
-                          { id: "speaking_p1", label: "Part 1" },
-                          { id: "speaking_p2", label: "Part 2" },
-                          { id: "speaking_p3", label: "Part 3" },
-                        ].map((s) => (
-                          <label key={s.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={enabledIeltsSections[s.id] !== false}
-                              onChange={(e) =>
-                                setEnabledIeltsSections((prev) => ({ ...prev, [s.id]: e.target.checked }))
-                              }
-                            />
-                            <span className="text-[var(--text)]">{s.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--muted)]">
-                      IELTS is split into real sub-parts for easier creation and grading.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
               {mode === "drill" ? (
                 <label className="block text-sm font-medium text-[var(--text)]">
                   Drill section
@@ -407,9 +287,6 @@ export default function NewExamPage() {
                     </li>
                   ))}
                 </ul>
-                {program === "ielts" && mode === "full" && structure.sections.length === 0 ? (
-                  <p className="mt-3 text-xs text-red-700">Select at least one IELTS part.</p>
-                ) : null}
               </div>
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-4">
@@ -431,7 +308,7 @@ export default function NewExamPage() {
 
               <button
                 type="button"
-                disabled={busy || title.trim().length === 0 || (program === "ielts" && mode === "full" && structure.sections.length === 0)}
+                disabled={busy || title.trim().length === 0}
                 onClick={() => void create()}
                 className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
               >
