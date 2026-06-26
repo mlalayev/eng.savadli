@@ -9,6 +9,8 @@ import { cn } from "@/lib/cn";
 export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
+const MotionLink = motion.create(Link);
+
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
     "border border-transparent bg-[var(--accent)] text-[var(--on-accent)] shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:bg-[var(--accent-hover)] active:bg-[var(--accent-pressed)]",
@@ -46,35 +48,15 @@ export type ButtonProps = ButtonAsButton | ButtonAsLink;
 const base =
   "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-[background-color,border-color,color] duration-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]/25 disabled:pointer-events-none disabled:opacity-40";
 
-function MotionWrap({
-  children,
-  className,
-  disabled,
-}: {
-  children: ReactNode;
-  className: string;
-  disabled?: boolean;
-}) {
-  const reduceMotion = useReducedMotion();
-
-  if (disabled || reduceMotion) {
-    return <span className={className}>{children}</span>;
-  }
-
-  return (
-    <motion.span
-      className={cn("inline-flex", className)}
-      whileHover={buttonHover}
-      whileTap={buttonTap}
-    >
-      {children}
-    </motion.span>
-  );
-}
+const motionProps = {
+  whileHover: buttonHover,
+  whileTap: buttonTap,
+};
 
 export function Button(props: ButtonProps) {
   const { variant = "primary", size = "md", className, children } = props;
   const classes = cn(base, variantStyles[variant], sizeStyles[size], className);
+  const reduceMotion = useReducedMotion();
 
   if ("href" in props && props.href) {
     const { href, disabled } = props;
@@ -85,45 +67,90 @@ export function Button(props: ButtonProps) {
         </span>
       );
     }
-    return (
-      <MotionWrap className={classes}>
-        <Link href={href} className="inline-flex h-full w-full items-center justify-center gap-2">
+    if (reduceMotion) {
+      return (
+        <Link href={href} className={classes}>
           {children}
         </Link>
-      </MotionWrap>
-    );
-  }
-
-  const { type = "button", disabled, ...rest } = props;
-
-  if (disabled) {
+      );
+    }
     return (
-      <button type={type} disabled className={classes} {...rest}>
+      <MotionLink href={href} className={classes} {...motionProps}>
         {children}
-      </button>
+      </MotionLink>
     );
   }
 
-  const reduceMotion = useReducedMotion();
-  if (reduceMotion) {
+  const buttonProps = props as ButtonAsButton;
+  const { type = "button", disabled, ...rest } = buttonProps;
+
+  if (disabled || reduceMotion) {
     return (
-      <button type={type} className={classes} {...rest}>
+      <button type={type} disabled={disabled} className={classes} {...rest}>
         {children}
       </button>
     );
   }
 
   return (
-    <motion.button
-      type={type}
-      className={classes}
-      whileHover={buttonHover}
-      whileTap={buttonTap}
-      {...rest}
-    >
-      {children}
-    </motion.button>
+    <motion.span className="inline-flex" whileHover={buttonHover} whileTap={buttonTap}>
+      <button type={type} className={classes} disabled={disabled} {...rest}>
+        {children}
+      </button>
+    </motion.span>
   );
 }
 
-type IconButtonProps = B
+type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  size?: "sm" | "md";
+};
+
+const iconSizes = {
+  sm: "h-8 w-8",
+  md: "h-10 w-10",
+};
+
+export function IconButton({ label, size = "md", className, children, ...rest }: IconButtonProps) {
+  const reduceMotion = useReducedMotion();
+  const classes = cn(
+    "inline-flex items-center justify-center rounded-lg border border-transparent text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]/25",
+    iconSizes[size],
+    className,
+  );
+
+  if (reduceMotion) {
+    return (
+      <button type="button" aria-label={label} className={classes} {...rest}>
+        {children}
+      </button>
+    );
+  }
+
+  return (
+    <motion.span className="inline-flex" whileHover={buttonHover} whileTap={buttonTap}>
+      <button type="button" aria-label={label} className={classes} {...rest}>
+        {children}
+      </button>
+    </motion.span>
+  );
+}
+
+export function ArrowRightIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}

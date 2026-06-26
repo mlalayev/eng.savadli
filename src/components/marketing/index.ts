@@ -15,3 +15,5 @@ export { Testimonials } from "@/components/marketing/Testimonials";
 export type { Testimonial, TestimonialsProps } from "@/components/marketing/Testimonials";
 export { CTABanner } from "@/components/marketing/CTABanner";
 export type { CTABannerProps } from "@/components/marketing/CTABanner";
+export { HeroSection } from "@/components/marketing/HeroSection";
+export { LandingPage } from "@/components/marketing/LandingPage";

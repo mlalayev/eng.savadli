@@ -105,3 +105,43 @@ export const TESTIMONIALS = [
     initials: "LH",
   },
 ] as const;
+
+export const WHY_FEATURES = [
+  {
+    title: "Structured paths",
+    description:
+      "Follow clear study sequences from first lesson to full mock exam — no guessing what to do next.",
+  },
+  {
+    title: "Real exam conditions",
+    description:
+      "Practice with timed sections and formats that mirror IELTS and Digital SAT — so test day feels familiar.",
+  },
+  {
+    title: "Human feedback",
+    description:
+      "Teachers review writing and speaking work — not just auto-graded multiple choice.",
+  },
+  {
+    title: "Calm, focused workspace",
+    description:
+      "A clean interface designed for long study sessions — without distractions or gamification noise.",
+  },
+] as const;
+
+export const LEARNING_STEPS = [
+  { step: "Discover", description: "Find your level and set a clear target score or band." },
+  { step: "Learn", description: "Work through lessons and vocabulary matched to your goals." },
+  { step: "Practice", description: "Complete homework and timed drills between classes." },
+  { step: "Exam", description: "Sit full mock tests under real conditions." },
+  { step: "Success", description: "Review results, close gaps, and walk in prepared." },
+] as const;
+
+export const PLATFORM_FEATURES = [
+  { title: "Practice exams", description: "Full and sectional mocks with realistic timing." },
+  { title: "Homework", description: "Structured assignments between classes." },
+  { title: "Teacher feedback", description: "Writing and speaking reviewed by your instructor." },
+  { title: "Analytics", description: "Accuracy by skill, section, and topic." },
+  { title: "Study plans", description: "Weekly plans connecting lessons and mocks." },
+  { title: "Vocabulary", description: "Curated word lists tied to your program." },
+] as const;

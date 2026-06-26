@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 import { ArrowRightIcon } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
@@ -48,56 +51,69 @@ export function ProgramCard({
   icon,
 }: ProgramCardProps) {
   const styles = accentStyles[accent];
+  const reduceMotion = useReducedMotion();
+
+  const inner = (
+    <Card
+      interactive
+      padding="lg"
+      className={cn(
+        "relative flex h-full flex-col overflow-hidden",
+        styles.border,
+      )}
+    >
+      <div
+        className={cn(
+          "absolute inset-x-0 top-0 h-0.5 scale-x-0 transition duration-200 group-hover:scale-x-100",
+          styles.stripe,
+        )}
+        aria-hidden
+      />
+
+      <div className="flex items-start justify-between gap-3">
+        <span
+          className={cn(
+            "inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide",
+            styles.badge,
+          )}
+        >
+          {accent === "dsat" ? "Digital SAT" : accent === "ielts" ? "IELTS" : "General"}
+        </span>
+        {icon ? (
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", styles.icon)}>
+            {icon}
+          </div>
+        ) : null}
+      </div>
+
+      <CardTitle className="mt-5">{title}</CardTitle>
+      <CardDescription className="mt-2 text-[15px]">{tagline}</CardDescription>
+
+      <ul className="mt-6 flex-1 space-y-2.5">
+        {features.map((feature) => (
+          <li key={feature} className="flex gap-2.5 text-sm text-[var(--muted)]">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
+            {feature}
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-8 flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] transition group-hover:gap-2.5">
+        Learn more
+        <ArrowRightIcon className="transition group-hover:translate-x-0.5" />
+      </p>
+    </Card>
+  );
 
   return (
     <Link href={href} className="group block h-full">
-      <Card
-        interactive
-        padding="lg"
-        className={cn(
-          "relative flex h-full flex-col overflow-hidden transition duration-150",
-          styles.border,
-          "group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
-        )}
-      >
-        <div
-          className={cn("absolute inset-x-0 top-0 h-0.5 scale-x-0 transition duration-200 group-hover:scale-x-100", styles.stripe)}
-          aria-hidden
-        />
-
-        <div className="flex items-start justify-between gap-3">
-          <span
-            className={cn(
-              "inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide",
-              styles.badge,
-            )}
-          >
-            {accent === "dsat" ? "Digital SAT" : accent === "ielts" ? "IELTS" : "General"}
-          </span>
-          {icon ? (
-            <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", styles.icon)}>
-              {icon}
-            </div>
-          ) : null}
-        </div>
-
-        <CardTitle className="mt-5">{title}</CardTitle>
-        <CardDescription className="mt-2 text-[15px]">{tagline}</CardDescription>
-
-        <ul className="mt-6 flex-1 space-y-2.5">
-          {features.map((feature) => (
-            <li key={feature} className="flex gap-2.5 text-sm text-[var(--muted)]">
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
-              {feature}
-            </li>
-          ))}
-        </ul>
-
-        <p className="mt-8 flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] transition group-hover:gap-2.5">
-          Learn more
-          <ArrowRightIcon className="transition group-hover:translate-x-0.5" />
-        </p>
-      </Card>
+      {reduceMotion ? (
+        inner
+      ) : (
+        <motion.div className="h-full" whileHover={{ y: -4 }} transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}>
+          {inner}
+        </motion.div>
+      )}
     </Link>
   );
 }

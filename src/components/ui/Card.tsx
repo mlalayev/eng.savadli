@@ -1,4 +1,8 @@
+"use client";
+
+import { motion, useReducedMotion } from "framer-motion";
 import type { HTMLAttributes, ReactNode } from "react";
+import { cardLift } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 type CardProps = HTMLAttributes<HTMLDivElement> & {
@@ -19,17 +23,39 @@ export function Card({
   children,
   ...rest
 }: CardProps) {
+  const reduceMotion = useReducedMotion();
+  const classes = cn(
+    "rounded-xl border border-[var(--border)] bg-[var(--surface)]",
+    paddingStyles[padding],
+    interactive &&
+      !reduceMotion &&
+      "transition-[border-color] duration-150 hover:border-[var(--border-strong)]",
+    interactive &&
+      reduceMotion &&
+      "transition-[border-color,box-shadow] duration-150 hover:border-[var(--border-strong)] hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+    className,
+  );
+
+  if (interactive && !reduceMotion) {
+    const { onClick, onKeyDown, role, tabIndex, id, "aria-label": ariaLabel } = rest;
+    return (
+      <motion.div
+        className={classes}
+        whileHover={cardLift}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        role={role}
+        tabIndex={tabIndex}
+        id={id}
+        aria-label={ariaLabel}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-[var(--border)] bg-[var(--surface)]",
-        paddingStyles[padding],
-        interactive &&
-          "transition-[border-color,box-shadow] duration-150 hover:border-[var(--border-strong)] hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
-        className,
-      )}
-      {...rest}
-    >
+    <div className={classes} {...rest}>
       {children}
     </div>
   );

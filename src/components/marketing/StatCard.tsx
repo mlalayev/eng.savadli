@@ -1,3 +1,7 @@
+"use client";
+
+import { AnimatedNumber } from "@/components/motion/AnimatedNumber";
+import { FadeIn } from "@/components/motion/FadeIn";
 import { cn } from "@/lib/cn";
 
 export type StatCardProps = {
@@ -8,12 +12,13 @@ export type StatCardProps = {
 
 export function StatCard({ value, label, className }: StatCardProps) {
   return (
-    <div className={cn("text-center", className)}>
-      <p className="font-mono text-4xl font-semibold tracking-tight text-[var(--footer-heading)] sm:text-5xl">
-        {value}
-      </p>
+    <FadeIn className={cn("text-center", className)}>
+      <AnimatedNumber
+        value={value}
+        className="font-mono text-4xl font-semibold tracking-tight text-[var(--footer-heading)] sm:text-5xl"
+      />
       <p className="mt-2 text-sm text-[var(--footer-text)] opacity-90">{label}</p>
-    </div>
+    </FadeIn>
   );
 }
 
@@ -33,7 +38,9 @@ export function StatisticsSection({ stats, footnote, id }: StatisticsSectionProp
           ))}
         </div>
         {footnote ? (
-          <p className="mt-10 text-center text-xs text-[var(--footer-text)] opacity-75">{footnote}</p>
+          <FadeIn delay={0.2}>
+            <p className="mt-10 text-center text-xs text-[var(--footer-text)] opacity-75">{footnote}</p>
+          </FadeIn>
         ) : null}
       </div>
     </section>

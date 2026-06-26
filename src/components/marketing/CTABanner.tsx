@@ -1,3 +1,6 @@
+"use client";
+
+import { FadeIn } from "@/components/motion/FadeIn";
 import { ArrowRightIcon, Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
@@ -47,7 +50,7 @@ export function CTABanner({
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-8">
+      <FadeIn className="relative mx-auto max-w-2xl px-4 text-center sm:px-8">
         <h2 className="text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">{title}</h2>
         <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">{subtitle}</p>
 
@@ -62,7 +65,7 @@ export function CTABanner({
         </div>
 
         {finePrint ? <p className="mt-6 text-xs text-[var(--faint)]">{finePrint}</p> : null}
-      </div>
+      </FadeIn>
     </section>
   );
 }

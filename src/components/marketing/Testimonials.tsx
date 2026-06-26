@@ -1,4 +1,7 @@
+"use client";
+
 import { Card } from "@/components/ui/Card";
+import { FadeIn, Stagger, StaggerItem } from "@/components/motion/FadeIn";
 import { cn } from "@/lib/cn";
 
 export type Testimonial = {
@@ -22,16 +25,18 @@ export function Testimonials({
   return (
     <section className="py-16 sm:py-24">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-8">
-        <div className="mx-auto max-w-2xl text-center">
+        <FadeIn className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">{title}</h2>
           <p className="mt-3 text-base text-[var(--muted)]">{subtitle}</p>
-        </div>
+        </FadeIn>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <Stagger className="mt-12 grid gap-6 md:grid-cols-3">
           {items.map((item) => (
-            <TestimonialCard key={item.name} {...item} />
+            <StaggerItem key={item.name}>
+              <TestimonialCard {...item} />
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       </div>
     </section>
   );
@@ -39,8 +44,10 @@ export function Testimonials({
 
 function TestimonialCard({ quote, name, meta, initials }: Testimonial) {
   return (
-    <Card padding="lg" className="flex h-full flex-col">
-      <blockquote className="flex-1 text-[17px] leading-relaxed text-[var(--text)]">&ldquo;{quote}&rdquo;</blockquote>
+    <Card interactive padding="lg" className="flex h-full flex-col">
+      <blockquote className="flex-1 text-[17px] leading-relaxed text-[var(--text)]">
+        &ldquo;{quote}&rdquo;
+      </blockquote>
       <div className="mt-8 border-t border-[var(--border)] pt-6">
         <div className="flex items-center gap-3">
           <div
