@@ -2,6 +2,13 @@
 
 import { AnimatedNumber } from "@/components/motion/AnimatedNumber";
 import { FadeIn } from "@/components/motion/FadeIn";
+import {
+  LANDING_CONTAINER,
+  LANDING_GRID_GAP,
+  LANDING_HEADER_TO_CONTENT,
+  LANDING_SECTION_PY,
+  SectionHeader,
+} from "@/components/marketing/Section";
 import { cn } from "@/lib/cn";
 
 export type StatCardProps = {
@@ -12,13 +19,13 @@ export type StatCardProps = {
 
 export function StatCard({ value, label, className }: StatCardProps) {
   return (
-    <FadeIn className={cn("text-center", className)}>
+    <div className={cn("text-center", className)}>
       <AnimatedNumber
         value={value}
-        className="font-mono text-4xl font-semibold tracking-tight text-[var(--footer-heading)] sm:text-5xl"
+        className="font-mono text-[2.5rem] font-semibold leading-none tracking-tight text-[var(--footer-heading)] sm:text-5xl"
       />
-      <p className="mt-2 text-sm text-[var(--footer-text)] opacity-90">{label}</p>
-    </FadeIn>
+      <p className="mt-3 text-sm leading-5 text-[var(--footer-text)]">{label}</p>
+    </div>
   );
 }
 
@@ -30,16 +37,24 @@ export type StatisticsSectionProps = {
 
 export function StatisticsSection({ stats, footnote, id }: StatisticsSectionProps) {
   return (
-    <section id={id} className="bg-[var(--footer-bg)] py-16 sm:py-20">
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-8">
-        <div className="grid grid-cols-2 gap-10 lg:grid-cols-4 lg:gap-8">
+    <section id={id} className="bg-[var(--footer-bg)] text-[var(--footer-text)]">
+      <div className={cn(LANDING_CONTAINER, LANDING_SECTION_PY)}>
+        <SectionHeader
+          variant="dark"
+          eyebrow="Impact"
+          title="Built for outcomes that compound."
+          subtitle="Structured preparation — measured in real progress, not streaks."
+        />
+        <div className={cn(LANDING_HEADER_TO_CONTENT, "grid grid-cols-2", LANDING_GRID_GAP, "lg:grid-cols-4")}>
           {stats.map((stat) => (
             <StatCard key={stat.label} value={stat.value} label={stat.label} />
           ))}
         </div>
         {footnote ? (
-          <FadeIn delay={0.2}>
-            <p className="mt-10 text-center text-xs text-[var(--footer-text)] opacity-75">{footnote}</p>
+          <FadeIn delay={0.15}>
+            <p className="mt-12 text-center text-xs leading-5 text-[var(--footer-text)] opacity-75">
+              {footnote}
+            </p>
           </FadeIn>
         ) : null}
       </div>

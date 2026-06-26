@@ -2,6 +2,12 @@
 
 import { FadeIn } from "@/components/motion/FadeIn";
 import { ArrowRightIcon, Button } from "@/components/ui/Button";
+import {
+  LANDING_CONTAINER,
+  LANDING_SCROLL_MT,
+  LANDING_SECTION_PY,
+  SectionHeader,
+} from "@/components/marketing/Section";
 import { cn } from "@/lib/cn";
 
 export type CTABannerProps = {
@@ -31,12 +37,14 @@ export function CTABanner({
     <section
       id={id}
       className={cn(
-        "relative scroll-mt-24 overflow-hidden border-y border-[var(--border)] bg-[var(--surface)] py-20 sm:py-24",
+        LANDING_SCROLL_MT,
+        "relative overflow-hidden border-t border-[var(--border)] bg-[var(--background)]",
+        LANDING_SECTION_PY,
         className,
       )}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        className="pointer-events-none absolute inset-0 opacity-25"
         style={{
           backgroundImage:
             "linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px)",
@@ -45,27 +53,25 @@ export function CTABanner({
         }}
         aria-hidden
       />
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[400px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)] opacity-[0.05] blur-[100px]"
-        aria-hidden
-      />
 
-      <FadeIn className="relative mx-auto max-w-2xl px-4 text-center sm:px-8">
-        <h2 className="text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">{title}</h2>
-        <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">{subtitle}</p>
+      <div className={LANDING_CONTAINER}>
+        <SectionHeader title={title} subtitle={subtitle} className="max-w-2xl" />
 
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Button href={primaryHref} variant="primary" size="lg" className="w-full sm:w-auto">
-            {primaryLabel}
-            <ArrowRightIcon />
-          </Button>
-          <Button href={secondaryHref} variant="outline" size="lg" className="w-full sm:w-auto">
-            {secondaryLabel}
-          </Button>
-        </div>
-
-        {finePrint ? <p className="mt-6 text-xs text-[var(--faint)]">{finePrint}</p> : null}
-      </FadeIn>
+        <FadeIn delay={0.1} className="mt-10 flex flex-col items-center">
+          <div className="flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
+            <Button href={primaryHref} variant="primary" size="lg" className="w-full sm:w-auto">
+              {primaryLabel}
+              <ArrowRightIcon />
+            </Button>
+            <Button href={secondaryHref} variant="outline" size="lg" className="w-full sm:w-auto">
+              {secondaryLabel}
+            </Button>
+          </div>
+          {finePrint ? (
+            <p className="mt-6 text-center text-xs leading-5 text-[var(--faint)]">{finePrint}</p>
+          ) : null}
+        </FadeIn>
+      </div>
     </section>
   );
 }

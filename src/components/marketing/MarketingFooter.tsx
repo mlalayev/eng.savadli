@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { LANDING_CONTAINER } from "@/components/marketing/Section";
 import { cn } from "@/lib/cn";
 import { FOOTER_COLUMNS } from "@/lib/marketing";
 import { siteConfig } from "@/lib/site";
@@ -38,18 +39,26 @@ const SOCIAL = [
 
 export function MarketingFooter() {
   return (
-    <footer className="bg-[var(--footer-bg)] text-[var(--footer-text)]">
-      <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-8">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
-          <div>
-            <div className="relative h-9 w-[120px] brightness-0 invert">
-              <Image src="/logooSmall.png" alt={siteConfig.name} fill sizes="120px" className="object-contain object-left" />
+    <footer className="border-t border-[var(--footer-border)] bg-[var(--footer-bg)] text-[var(--footer-text)]">
+      <div className={cn(LANDING_CONTAINER, "py-16 sm:py-20")}>
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.35fr_repeat(4,1fr)] lg:gap-10">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <div className="relative h-9 w-[7.5rem] brightness-0 invert">
+              <Image
+                src="/logooSmall.png"
+                alt={siteConfig.name}
+                fill
+                sizes="120px"
+                className="object-contain object-left"
+              />
             </div>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed">{siteConfig.description}</p>
-            <p className="mt-4 text-sm">
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-[var(--footer-text)]">
+              {siteConfig.description}
+            </p>
+            <p className="mt-4">
               <a
                 href={`mailto:${siteConfig.contactEmail}`}
-                className="text-[var(--footer-heading)] transition hover:text-white"
+                className="text-sm text-[var(--footer-heading)] underline-offset-4 transition hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               >
                 {siteConfig.contactEmail}
               </a>
@@ -59,12 +68,12 @@ export function MarketingFooter() {
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title}>
               <p className="text-sm font-semibold text-[var(--footer-heading)]">{col.title}</p>
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-4 space-y-2.5">
                 {col.links.map((link) => (
-                  <li key={link.label}>
+                  <li key={`${col.title}-${link.href}-${link.label}`}>
                     <Link
                       href={link.href}
-                      className="text-sm transition hover:text-[var(--footer-heading)]"
+                      className="text-sm leading-5 transition hover:text-[var(--footer-heading)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                     >
                       {link.label}
                     </Link>
@@ -76,10 +85,10 @@ export function MarketingFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-[var(--footer-border)] pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs">
+          <p className="text-xs leading-5 text-[var(--footer-text)]">
             © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {SOCIAL.map(({ label, href, icon: Icon }) => (
               <a
                 key={label}
@@ -87,9 +96,7 @@ export function MarketingFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={label}
-                className={cn(
-                  "text-[var(--footer-text)] transition hover:text-[var(--footer-heading)]",
-                )}
+                className="rounded-md p-1.5 text-[var(--footer-text)] transition hover:text-[var(--footer-heading)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
               >
                 <Icon />
               </a>

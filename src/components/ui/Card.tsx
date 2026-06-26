@@ -82,7 +82,7 @@ export function CardIcon({
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h3 className={cn("text-lg font-semibold tracking-tight text-[var(--text)]", className)}>
+    <h3 className={cn("text-[1.0625rem] font-semibold leading-6 tracking-tight text-[var(--text)]", className)}>
       {children}
     </h3>
   );

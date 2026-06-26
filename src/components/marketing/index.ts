@@ -15,5 +15,6 @@ export { Testimonials } from "@/components/marketing/Testimonials";
 export type { Testimonial, TestimonialsProps } from "@/components/marketing/Testimonials";
 export { CTABanner } from "@/components/marketing/CTABanner";
 export type { CTABannerProps } from "@/components/marketing/CTABanner";
+export { Section, SectionHeader, CheckIcon, LANDING_CONTAINER, LANDING_SECTION_PY, LANDING_SCROLL_MT, LANDING_GRID_GAP, LANDING_HEADER_TO_CONTENT } from "@/components/marketing/Section";
 export { HeroSection } from "@/components/marketing/HeroSection";
 export { LandingPage } from "@/components/marketing/LandingPage";

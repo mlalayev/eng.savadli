@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button, IconButton } from "@/components/ui/Button";
+import { LANDING_CONTAINER } from "@/components/marketing/Section";
 import { cn } from "@/lib/cn";
 import { NAV_LINKS } from "@/lib/marketing";
 import { siteConfig } from "@/lib/site";
@@ -25,6 +26,7 @@ function CloseIcon() {
 }
 
 export function Navbar() {
+  const menuId = useId();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -48,11 +50,14 @@ export function Navbar() {
         "sticky top-0 z-50 transition-[background-color,box-shadow,border-color,backdrop-filter] duration-150",
         scrolled
           ? "border-b border-[var(--border)]/80 bg-[var(--header-bg)] shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl backdrop-saturate-[180%]"
-          : "border-b border-transparent bg-transparent",
+          : "border-b border-transparent bg-[var(--background)]/80",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
-        <Link href="/" className="relative flex h-9 w-[120px] shrink-0 items-center">
+      <div className={cn(LANDING_CONTAINER, "flex h-16 items-center justify-between gap-4")}>
+        <Link
+          href="/"
+          className="relative flex h-9 w-[7.5rem] shrink-0 items-center rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]/25"
+        >
           <Image
             src="/logooSmall.png"
             alt={siteConfig.name}
@@ -63,19 +68,19 @@ export function Navbar() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
+        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg px-3.5 py-2 text-[15px] font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)]"
+              className="rounded-lg px-3.5 py-2 text-[0.9375rem] font-medium text-[var(--muted)] transition hover:bg-[var(--hover)] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
             >
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           <Button href="/login" variant="ghost" size="sm">
             Login
           </Button>
@@ -87,6 +92,8 @@ export function Navbar() {
         <IconButton
           label={menuOpen ? "Close menu" : "Open menu"}
           className="lg:hidden"
+          aria-expanded={menuOpen}
+          aria-controls={menuId}
           onClick={() => setMenuOpen((v) => !v)}
         >
           {menuOpen ? <CloseIcon /> : <MenuIcon />}
@@ -94,14 +101,17 @@ export function Navbar() {
       </div>
 
       {menuOpen ? (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-6 lg:hidden">
-          <nav className="flex flex-col gap-1" aria-label="Mobile">
+        <div
+          id={menuId}
+          className="border-t border-[var(--border)] bg-[var(--surface)] px-6 py-6 lg:hidden"
+        >
+          <nav className="flex flex-col gap-0.5" aria-label="Mobile">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className="rounded-lg px-3 py-3 text-base font-medium text-[var(--text)] hover:bg-[var(--hover)]"
+                className="rounded-lg px-3 py-3 text-[0.9375rem] font-medium text-[var(--text)] hover:bg-[var(--hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/25"
               >
                 {link.label}
               </Link>
