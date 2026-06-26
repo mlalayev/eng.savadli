@@ -28,12 +28,12 @@ function StatCard({
   const reduceMotion = useReducedMotion();
   const card = (
     <div
-      className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-card)]"
+      className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 shadow-[var(--shadow-card)]"
       aria-hidden
     >
       <p className="text-[10px] font-medium uppercase tracking-[0.05em] text-[var(--faint)]">{label}</p>
-      <p className="mt-0.5 font-mono text-xl font-semibold tracking-tight text-[var(--text)]">{value}</p>
-      {sub ? <p className="text-[11px] text-[var(--muted)]">{sub}</p> : null}
+      <p className="font-mono text-lg font-semibold leading-tight tracking-tight text-[var(--text)]">{value}</p>
+      {sub ? <p className="text-[11px] leading-tight text-[var(--muted)]">{sub}</p> : null}
     </div>
   );
 
@@ -54,7 +54,7 @@ export function HeroSection() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative flex min-h-[calc(100dvh-4rem)] items-center overflow-hidden bg-[var(--background)] lg:min-h-[calc(100dvh-4.5rem)]"
+      className="relative flex min-h-[calc(100dvh-4rem)] items-center overflow-x-clip bg-[var(--background)] lg:min-h-[calc(100dvh-4.5rem)]"
     >
       <div
         className={cn(
@@ -104,59 +104,61 @@ export function HeroSection() {
           </StaggerItem>
         </Stagger>
 
-        <div className="relative mx-auto w-full max-w-sm lg:mx-0 lg:ml-auto lg:max-w-none">
+        <div className="relative mx-auto w-full max-w-[26rem] px-5 sm:px-6 lg:mx-0 lg:ml-auto lg:max-w-[28rem] lg:px-8">
           <p className="sr-only">
             Illustrative progress: IELTS band 7.5, Digital SAT 1420, daily progress 85%, study streak 12
             days.
           </p>
 
-          <div
-            className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[85%] w-[85%] max-h-[22rem] max-w-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-subtle)] lg:max-h-[26rem] lg:max-w-[26rem]"
-            aria-hidden
-          />
-
-          <motion.div
-            className="relative z-[1] mx-auto aspect-[5/4] w-full max-h-[min(280px,42dvh)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)] sm:max-h-[min(340px,44dvh)] lg:mx-0 lg:ml-auto lg:aspect-[4/5] lg:max-h-[min(480px,calc(100dvh-10rem))] lg:max-w-[420px]"
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0, 0, 0.2, 1] }}
-          >
-            <Image
-              src={HERO_IMAGE}
-              alt="Student studying with focus"
-              fill
-              sizes="(max-width: 1024px) 100vw, 420px"
-              className="object-cover object-center"
-              priority
+          <div className="relative">
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[88%] w-[88%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-subtle)]"
+              aria-hidden
             />
-          </motion.div>
 
-          <StatCard
-            label="IELTS Band"
-            value="7.5"
-            sub="Target"
-            delay={0}
-            className="absolute -right-1 top-4 z-[2] w-[7.5rem] sm:-right-3 sm:w-32 lg:top-6"
-          />
-          <StatCard
-            label="Digital SAT"
-            value="1420"
-            sub="Average"
-            delay={1}
-            className="absolute -left-1 top-[40%] z-[2] hidden w-32 sm:-left-3 sm:block"
-          />
-          <StatCard
-            label="Daily progress"
-            value="85%"
-            delay={2}
-            className="absolute bottom-4 right-0 z-[2] hidden w-32 sm:block lg:bottom-8"
-          />
-          <StatCard
-            label="Study streak"
-            value="12 days"
-            delay={1.5}
-            className="absolute left-1 top-2 z-[2] hidden w-28 sm:block lg:left-2 lg:top-4"
-          />
+            <motion.div
+              className="relative z-[1] mx-auto aspect-[5/4] w-full max-h-[min(280px,42dvh)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)] sm:max-h-[min(340px,44dvh)] lg:aspect-[4/5] lg:max-h-[min(480px,calc(100dvh-10rem))]"
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0, 0, 0.2, 1] }}
+            >
+              <Image
+                src={HERO_IMAGE}
+                alt="Student studying with focus"
+                fill
+                sizes="(max-width: 1024px) 100vw, 420px"
+                className="object-cover object-center"
+                priority
+              />
+            </motion.div>
+
+            <StatCard
+              label="Study streak"
+              value="12 days"
+              delay={1.5}
+              className="absolute left-0 top-[8%] z-[2] w-[7.25rem] -translate-x-[18%] sm:w-[7.75rem] sm:-translate-x-[22%]"
+            />
+            <StatCard
+              label="IELTS Band"
+              value="7.5"
+              sub="Target"
+              delay={0}
+              className="absolute right-0 top-[10%] z-[2] w-[7.25rem] translate-x-[18%] sm:w-32 sm:translate-x-[22%]"
+            />
+            <StatCard
+              label="Digital SAT"
+              value="1420"
+              sub="Average"
+              delay={1}
+              className="absolute bottom-[24%] left-0 z-[2] hidden w-32 -translate-x-[18%] sm:block sm:-translate-x-[22%]"
+            />
+            <StatCard
+              label="Daily progress"
+              value="85%"
+              delay={2}
+              className="absolute bottom-[10%] right-0 z-[2] hidden w-32 translate-x-[18%] sm:block sm:translate-x-[22%]"
+            />
+          </div>
         </div>
       </div>
     </section>
