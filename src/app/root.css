@@ -1,15 +1,16 @@
 /**
- * Savadli design tokens — single source for site-wide color and surface tokens.
+ * Savadli design tokens
  */
 :root {
-  --background: #fafafa;
+  --background: #ffffff;
   --surface: #ffffff;
+  --card: #f9fafb;
   --surface-sunken: #f4f4f5;
-  --text: #18181b;
-  --muted: #71717a;
-  --faint: #a1a1aa;
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
+  --text: #111111;
+  --muted: #6b7280;
+  --faint: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
 
   --accent: #1f673c;
   --accent-hover: #1a5633;
@@ -19,10 +20,10 @@
   --ring: #1f673c;
   --on-accent: #ffffff;
 
-  --header-bg: rgb(255 255 255 / 0.72);
+  --header-bg: rgb(255 255 255 / 0.85);
 
-  --hover: #f4f4f5;
-  --hover-strong: #e4e4e7;
+  --hover: #f9fafb;
+  --hover-strong: #f3f4f6;
   --blob-soft: #e3f0e8;
 
   --error-border: #fecaca;
@@ -40,26 +41,27 @@
   --warning-badge-bg: #fffbeb;
   --warning-badge-text: #b45309;
 
-  --inactive-text: #a1a1aa;
+  --inactive-text: #9ca3af;
 
-  --program-ielts: #7c3aed;
-  --program-ielts-soft: #f5f3ff;
-  --program-dsat: #1e40af;
-  --program-dsat-soft: #eff6ff;
-  --program-general: #0f766e;
-  --program-general-soft: #f0fdfa;
-  --program-muted: #a1a1aa;
+  --program-ielts: #1f673c;
+  --program-ielts-soft: #f2f8f4;
+  --program-dsat: #1f673c;
+  --program-dsat-soft: #f2f8f4;
+  --program-general: #1f673c;
+  --program-general-soft: #f2f8f4;
+  --program-muted: #9ca3af;
 
-  --footer-bg: #18181b;
-  --footer-text: #a1a1aa;
-  --footer-heading: #fafafa;
+  --footer-bg: #111111;
+  --footer-text: #9ca3af;
+  --footer-heading: #ffffff;
   --footer-border: #27272a;
 
-  --skeleton: #e4e4e7;
-  --skeleton-muted: #f4f4f5;
+  --skeleton: #e5e7eb;
+  --skeleton-muted: #f3f4f6;
 
-  --overlay-scrim: rgb(24 24 27 / 0.4);
+  --overlay-scrim: rgb(17 17 17 / 0.4);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
   --shadow-ring: rgb(0 0 0 / 0.05);
 
-  --accent-gradient-mid: color-mix(in srgb, var(--accent) 65%, white);
+  --radius: 16px;
 }

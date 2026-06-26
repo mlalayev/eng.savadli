@@ -12,8 +12,8 @@ export const fadeUpTransition = (delay = 0) => ({
 export const scrollViewport = { once: true, margin: "-80px" as const };
 
 export const cardLift = {
-  y: -4,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+  y: -3,
+  boxShadow: "var(--shadow-card)",
   transition: { duration: 0.2, ease: easeOut },
 };
 

@@ -10,11 +10,13 @@ export type { ProgramCardProps, ProgramAccent } from "@/components/marketing/Pro
 export { StatCard, StatisticsSection } from "@/components/marketing/StatCard";
 export type { StatCardProps, StatisticsSectionProps } from "@/components/marketing/StatCard";
 export { FAQ } from "@/components/marketing/FAQ";
-export type { FAQItem, FAQProps } from "@/components/marketing/FAQ";
+export type { FAQItem } from "@/components/marketing/FAQ";
 export { Testimonials } from "@/components/marketing/Testimonials";
-export type { Testimonial, TestimonialsProps } from "@/components/marketing/Testimonials";
+export type { Testimonial } from "@/components/marketing/Testimonials";
 export { CTABanner } from "@/components/marketing/CTABanner";
 export type { CTABannerProps } from "@/components/marketing/CTABanner";
 export { Section, SectionHeader, CheckIcon, LANDING_CONTAINER, LANDING_SECTION_PY, LANDING_SCROLL_MT, LANDING_GRID_GAP, LANDING_HEADER_TO_CONTENT } from "@/components/marketing/Section";
+export { TrustedBy } from "@/components/marketing/TrustedBy";
+export { LearningProcess } from "@/components/marketing/LearningProcess";
 export { HeroSection } from "@/components/marketing/HeroSection";
 export { LandingPage } from "@/components/marketing/LandingPage";

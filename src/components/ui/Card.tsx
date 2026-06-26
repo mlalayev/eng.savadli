@@ -8,10 +8,11 @@ import { cn } from "@/lib/cn";
 type CardProps = HTMLAttributes<HTMLDivElement> & {
   interactive?: boolean;
   padding?: "sm" | "md" | "lg";
+  variant?: "default" | "muted";
 };
 
 const paddingStyles = {
-  sm: "p-4",
+  sm: "p-5",
   md: "p-6",
   lg: "p-8",
 };
@@ -19,20 +20,17 @@ const paddingStyles = {
 export function Card({
   interactive = false,
   padding = "md",
+  variant = "default",
   className,
   children,
   ...rest
 }: CardProps) {
   const reduceMotion = useReducedMotion();
   const classes = cn(
-    "rounded-xl border border-[var(--border)] bg-[var(--surface)]",
+    "rounded-2xl border border-[var(--border)]",
+    variant === "muted" ? "bg-[var(--card)]" : "bg-[var(--surface)]",
     paddingStyles[padding],
-    interactive &&
-      !reduceMotion &&
-      "transition-[border-color] duration-150 hover:border-[var(--border-strong)]",
-    interactive &&
-      reduceMotion &&
-      "transition-[border-color,box-shadow] duration-150 hover:border-[var(--border-strong)] hover:shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+    interactive && !reduceMotion && "transition-[border-color,box-shadow] duration-200",
     className,
   );
 
@@ -61,17 +59,11 @@ export function Card({
   );
 }
 
-export function CardIcon({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function CardIcon({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        "flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]",
+        "flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--background)] text-[var(--accent)]",
         className,
       )}
     >
@@ -82,20 +74,10 @@ export function CardIcon({
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h3 className={cn("text-[1.0625rem] font-semibold leading-6 tracking-tight text-[var(--text)]", className)}>
-      {children}
-    </h3>
+    <h3 className={cn("text-lg font-semibold tracking-tight text-[var(--text)]", className)}>{children}</h3>
   );
 }
 
-export function CardDescription({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <p className={cn("mt-2 text-sm leading-relaxed text-[var(--muted)]", className)}>{children}</p>
-  );
+export function CardDescription({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("mt-2 text-sm leading-relaxed text-[var(--muted)]", className)}>{children}</p>;
 }

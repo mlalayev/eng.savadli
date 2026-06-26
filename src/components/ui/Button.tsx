@@ -22,10 +22,13 @@ const variantStyles: Record<ButtonVariant, string> = {
     "border border-transparent bg-transparent text-[var(--muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]",
 };
 
+const base =
+  "inline-flex items-center justify-center gap-2 rounded-2xl font-medium transition-[background-color,border-color,color] duration-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]/25 disabled:pointer-events-none disabled:opacity-40";
+
 const sizeStyles: Record<ButtonSize, string> = {
   sm: "h-9 px-4 text-[13px]",
-  md: "h-10 px-5 text-[15px]",
-  lg: "h-12 px-6 text-[15px]",
+  md: "h-11 px-5 text-[15px]",
+  lg: "h-12 px-7 text-[15px]",
 };
 
 type ButtonBaseProps = {
@@ -44,9 +47,6 @@ type ButtonAsLink = ButtonBaseProps & {
 };
 
 export type ButtonProps = ButtonAsButton | ButtonAsLink;
-
-const base =
-  "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-[background-color,border-color,color] duration-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--accent)]/25 disabled:pointer-events-none disabled:opacity-40";
 
 const motionProps = {
   whileHover: buttonHover,

@@ -2,17 +2,17 @@ export const NAV_LINKS = [
   { label: "Programs", href: "/#programs" },
   { label: "Practice", href: "/#practice" },
   { label: "Resources", href: "/#features" },
-  { label: "About", href: "/#faq" },
   { label: "Pricing", href: "/#cta" },
+  { label: "About", href: "/#faq" },
 ] as const;
 
 export const FOOTER_COLUMNS = [
   {
-    title: "About",
+    title: "Company",
     links: [
       { label: "About Savadli", href: "/approach" },
       { label: "Our approach", href: "/approach" },
-      { label: "Teachers", href: "/contact" },
+      { label: "Contact", href: "/contact" },
     ],
   },
   {
@@ -29,25 +29,32 @@ export const FOOTER_COLUMNS = [
     links: [
       { label: "Practice exams", href: "/#features" },
       { label: "FAQ", href: "/#faq" },
-      { label: "Contact", href: "/contact" },
+      { label: "Blog", href: "/contact" },
     ],
   },
   {
     title: "Support",
     links: [
       { label: "Help center", href: "/contact" },
-      { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/contact" },
       { label: "Terms", href: "/contact" },
     ],
   },
 ] as const;
 
+export const TRUSTED_BY = [
+  "ADA University",
+  "Baku State University",
+  "UNEC",
+  "Khazar University",
+  "Western Caspian",
+] as const;
+
 export const STATS = [
   { value: "500+", label: "Students" },
   { value: "25+", label: "Teachers" },
-  { value: "1,200+", label: "Lessons & tasks" },
-  { value: "94%", label: "Improved confidence" },
+  { value: "1,200+", label: "Lessons" },
+  { value: "94%", label: "Success rate" },
 ] as const;
 
 export const FAQ_ITEMS = [
@@ -79,7 +86,7 @@ export const FAQ_ITEMS = [
   {
     question: "How do I get started?",
     answer:
-      "Create an account or ask your teacher for an invite link. You can also book a consultation from our contact page.",
+      "Create an account or ask your teacher for an invite link. You can also reach us from the contact page.",
   },
 ] as const;
 
@@ -108,40 +115,51 @@ export const TESTIMONIALS = [
 
 export const WHY_FEATURES = [
   {
-    title: "Structured paths",
-    description:
-      "Follow clear study sequences from first lesson to full mock exam — no guessing what to do next.",
+    title: "Experienced teachers",
+    description: "Instructors who know IELTS, Digital SAT, and General English inside out.",
   },
   {
-    title: "Real exam conditions",
-    description:
-      "Practice with timed sections and formats that mirror IELTS and Digital SAT — so test day feels familiar.",
+    title: "Interactive lessons",
+    description: "Structured content designed for focus — not passive video watching.",
   },
   {
-    title: "Human feedback",
-    description:
-      "Teachers review writing and speaking work — not just auto-graded multiple choice.",
+    title: "Homework",
+    description: "Assignments between classes that reinforce what you learned.",
   },
   {
-    title: "Calm, focused workspace",
-    description:
-      "A clean interface designed for long study sessions — without distractions or gamification noise.",
+    title: "Practice exams",
+    description: "Full and sectional mocks under real timing and conditions.",
+  },
+  {
+    title: "Analytics",
+    description: "See accuracy by skill and topic — know exactly what to study next.",
+  },
+  {
+    title: "Study plans",
+    description: "Weekly paths that connect lessons, homework, and mock tests.",
+  },
+  {
+    title: "Teacher feedback",
+    description: "Writing and speaking reviewed with clear, actionable comments.",
   },
 ] as const;
 
 export const LEARNING_STEPS = [
-  { step: "Discover", description: "Find your level and set a clear target score or band." },
-  { step: "Learn", description: "Work through lessons and vocabulary matched to your goals." },
-  { step: "Practice", description: "Complete homework and timed drills between classes." },
-  { step: "Exam", description: "Sit full mock tests under real conditions." },
-  { step: "Success", description: "Review results, close gaps, and walk in prepared." },
+  { step: "Join", description: "Create your account and set your target score or band." },
+  { step: "Learn", description: "Work through guided lessons matched to your level." },
+  { step: "Practice", description: "Complete homework and timed drills between sessions." },
+  { step: "Mock exams", description: "Sit full practice tests under real exam conditions." },
+  { step: "Real exam", description: "Walk in prepared — format, timing, and stamina feel familiar." },
+  { step: "Success", description: "Review results, close gaps, and reach your goal." },
 ] as const;
 
 export const PLATFORM_FEATURES = [
-  { title: "Practice exams", description: "Full and sectional mocks with realistic timing." },
-  { title: "Homework", description: "Structured assignments between classes." },
-  { title: "Teacher feedback", description: "Writing and speaking reviewed by your instructor." },
-  { title: "Analytics", description: "Accuracy by skill, section, and topic." },
-  { title: "Study plans", description: "Weekly plans connecting lessons and mocks." },
-  { title: "Vocabulary", description: "Curated word lists tied to your program." },
+  { title: "Practice exams", description: "IELTS and Digital SAT mocks with realistic navigation." },
+  { title: "Assignments", description: "Teacher-assigned tasks with due dates and tracking." },
+  { title: "Vocabulary", description: "Curated word lists tied to your program and level." },
+  { title: "AI support", description: "Hints and explanations when you are stuck — not a replacement for teachers." },
+  { title: "Reports", description: "Clear score breakdowns and progress over time." },
+  { title: "Progress", description: "Track completion across lessons, homework, and exams." },
+  { title: "Achievements", description: "Milestones that reflect real preparation — not gamification noise." },
+  { title: "Certificates", description: "Recognition when you complete programs and key milestones." },
 ] as const;
