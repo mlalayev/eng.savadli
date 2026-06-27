@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 
 export type ProgramAccent = "ielts" | "dsat" | "general";
 
-function ProgramIcon({ accent }: { accent: ProgramAccent }) {
+export function ProgramIcon({ accent }: { accent: ProgramAccent }) {
   const paths: Record<ProgramAccent, ReactNode> = {
     ielts: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>

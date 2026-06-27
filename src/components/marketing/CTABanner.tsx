@@ -18,6 +18,7 @@ export type CTABannerProps = {
   secondaryHref?: string;
   secondaryLabel?: string;
   finePrint?: string;
+  showSecondary?: boolean;
 };
 
 export function CTABanner({
@@ -29,6 +30,7 @@ export function CTABanner({
   secondaryHref = "/contact",
   secondaryLabel = "Talk to us",
   finePrint = "No credit card required to create an account.",
+  showSecondary = true,
 }: CTABannerProps) {
   return (
     <section
@@ -43,9 +45,11 @@ export function CTABanner({
               {primaryLabel}
               <ArrowRightIcon />
             </Button>
-            <Button href={secondaryHref} variant="outline" size="lg" className="w-full sm:w-auto">
-              {secondaryLabel}
-            </Button>
+            {showSecondary && secondaryLabel ? (
+              <Button href={secondaryHref} variant="outline" size="lg" className="w-full sm:w-auto">
+                {secondaryLabel}
+              </Button>
+            ) : null}
           </div>
           {finePrint ? (
             <p className="mt-6 text-center text-xs text-[var(--faint)]">{finePrint}</p>

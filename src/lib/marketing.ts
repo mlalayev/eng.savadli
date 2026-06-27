@@ -1,16 +1,16 @@
 export const NAV_LINKS = [
-  { label: "Programs", href: "/#programs" },
-  { label: "Practice", href: "/#practice" },
-  { label: "Resources", href: "/#features" },
-  { label: "Pricing", href: "/#cta" },
-  { label: "About", href: "/#faq" },
+  { label: "Programs", href: "/programs" },
+  { label: "Practice", href: "/practice" },
+  { label: "Resources", href: "/resources" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "About", href: "/about" },
 ] as const;
 
 export const FOOTER_COLUMNS = [
   {
     title: "Company",
     links: [
-      { label: "About Savadli", href: "/approach" },
+      { label: "About Savadli", href: "/about" },
       { label: "Our approach", href: "/approach" },
       { label: "Contact", href: "/contact" },
     ],
@@ -21,7 +21,7 @@ export const FOOTER_COLUMNS = [
       { label: "IELTS", href: "/programs#ielts" },
       { label: "Digital SAT", href: "/programs#digital-sat" },
       { label: "General English", href: "/programs#general-english" },
-      { label: "Pricing", href: "/#cta" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
